@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useCustomerStore } from '../stores/customerStore';
 import { useConsumptionStore } from '../stores/consumptionStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
+import { getMemberLevelLabel, getMemberLevelBgColor, getMemberLevelColor, getMemberLevelBorderColor } from '../utils/memberLevel';
 import type { ConsumptionRecordFormData } from '../types';
 
 export const ConsumptionRecordsPage: React.FC = () => {
@@ -22,6 +22,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
     error,
     fetchRecords,
     createRecord,
+    deleteRecord,
     clearError,
   } = useConsumptionStore();
 
@@ -141,6 +142,17 @@ export const ConsumptionRecordsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteRecord = async (id: number) => {
+    if (window.confirm('确定要删除这条消费记录吗？')) {
+      try {
+        await deleteRecord(id);
+        loadRecords();
+      } catch (error) {
+        // Error handled by store
+      }
+    }
+  };
+
   return (
     <div className="p-8">
       {/* 返回按钮 */}
@@ -187,11 +199,17 @@ export const ConsumptionRecordsPage: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <h2 className="text-2xl font-bold text-gray-900">{currentCustomer.petName}</h2>
-                    {currentCustomer.isMember ? (
-                      <Badge variant="success">会员</Badge>
-                    ) : (
-                      <Badge variant="default">非会员</Badge>
-                    )}
+                    <span
+                      className="inline-flex items-center rounded-full font-medium border text-sm px-4 py-2"
+                      style={{
+                        backgroundColor: getMemberLevelBgColor(currentCustomer.memberLevel),
+                        color: getMemberLevelColor(currentCustomer.memberLevel),
+                        borderColor: getMemberLevelBorderColor(currentCustomer.memberLevel),
+                        borderWidth: '2px',
+                      }}
+                    >
+                      {getMemberLevelLabel(currentCustomer.memberLevel)}
+                    </span>
                   </div>
                   <p className="text-gray-600">
                     <span className="font-medium">主人:</span> {currentCustomer.ownerName}
@@ -248,6 +266,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">发现问题</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">建议</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -267,6 +286,15 @@ export const ConsumptionRecordsPage: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                             {record.amount ? `¥${(record.amount / 100).toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleDeleteRecord(record.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="删除记录"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </td>
                         </tr>
                       ))}

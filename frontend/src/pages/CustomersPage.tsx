@@ -5,7 +5,8 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Search, Plus, Edit, X, Check } from 'lucide-react';
+import { ImageUpload } from '../components/ui/ImageUpload';
+import { Search, Plus, Edit, X, Check, Trash2 } from 'lucide-react';
 import { MEMBER_LEVELS, getMemberStatusLabel, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
 import type { Customer, CustomerFormData } from '../types';
 
@@ -21,6 +22,7 @@ export const CustomersPage: React.FC = () => {
     fetchCustomers,
     createCustomer,
     updateCustomer,
+    deleteCustomer,
     clearError,
   } = useCustomerStore();
 
@@ -120,6 +122,22 @@ export const CustomersPage: React.FC = () => {
   const cancelEdit = () => {
     setIsEditMode(false);
     resetFormData();
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!selectedCustomer) return;
+    if (window.confirm(`确定要删除客户 "${selectedCustomer.petName}" 吗？此操作不可恢复。`)) {
+      try {
+        await deleteCustomer(selectedCustomer.id);
+        setIsDetailDialogOpen(false);
+        setIsEditMode(false);
+        setSelectedCustomer(null);
+        resetFormData();
+        loadCustomers();
+      } catch (error) {
+        // Error handled by store
+      }
+    }
   };
 
   const openCustomerDetail = (customer: Customer) => {
@@ -375,13 +393,10 @@ export const CustomersPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">宠物头像URL</label>
-            <input
-              type="url"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <label className="block text-sm font-medium text-gray-700 mb-1">宠物头像（选填）</label>
+            <ImageUpload
               value={formData.avatar}
-              onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              placeholder="https://..."
+              onChange={(url) => setFormData({ ...formData, avatar: url })}
             />
           </div>
 
@@ -556,6 +571,13 @@ export const CustomersPage: React.FC = () => {
                   <Button onClick={() => viewConsumptionRecords(selectedCustomer.id)}>
                     查看消费记录
                   </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleDeleteCustomer}
+                  >
+                    <Trash2 size={18} className="mr-2" />
+                    删除
+                  </Button>
                 </div>
               </>
             ) : (
@@ -652,13 +674,10 @@ export const CustomersPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">宠物头像URL</label>
-                    <input
-                      type="url"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">宠物头像（选填）</label>
+                    <ImageUpload
                       value={formData.avatar}
-                      onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-                      placeholder="https://..."
+                      onChange={(url) => setFormData({ ...formData, avatar: url })}
                     />
                   </div>
 

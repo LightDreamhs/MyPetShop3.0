@@ -51,6 +51,11 @@ jwt:
   secret: petShopSecretKey2024ForJWTTokenGenerationMustBeLongEnough
   expiration: 7200  # 2小时，单位：秒
 
+# 文件上传配置
+file:
+  upload-dir: uploads/images/  # 上传目录
+  server-domain: http://localhost:8080  # 服务器域名（用于生成访问URL）
+
 # 日志配置
 logging:
   level:

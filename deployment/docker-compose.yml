@@ -1,0 +1,118 @@
+version: '3.8'
+
+# 宠物店管理系统 Docker Compose 配置
+# 用于一键部署前端、后端和数据库服务
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: petshop-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: pet_shop_3_0
+      MYSQL_USER: petshop
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      # 持久化数据库数据
+      - mysql-data:/var/lib/mysql
+      # 初始化脚本
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # MySQL 配置
+      - ./my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - petshop-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+
+  # 后端服务
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../deployment/Dockerfile.backend
+    container_name: petshop-backend
+    restart: unless-stopped
+    environment:
+      # 数据库配置
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pet_shop_3_0?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: petshop
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+
+      # JWT 配置
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7200}
+
+      # 服务器配置
+      SERVER_DOMAIN: ${SERVER_DOMAIN}
+      FILE_UPLOAD_DIR: /app/uploads/images
+
+      # Spring Profile
+      SPRING_PROFILES_ACTIVE: production
+    ports:
+      - "8080:8080"
+    volumes:
+      # 持久化上传文件
+      - upload-data:/app/uploads/images
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - petshop-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/auth/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 前端服务
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../deployment/Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: petshop-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      # Nginx 日志
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - petshop-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# 持久化数据卷
+volumes:
+  mysql-data:
+    driver: local
+  upload-data:
+    driver: local
+  nginx-logs:
+    driver: local
+
+# 网络配置
+networks:
+  petshop-network:
+    driver: bridge
