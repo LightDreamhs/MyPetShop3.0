@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.petshop.backend.mapper.TransactionMapper">
+
+    <resultMap id="BaseResultMap" type="com.petshop.backend.entity.Transaction">
+        <id column="id" property="id"/>
+        <result column="type" property="type"/>
+        <result column="amount" property="amount"/>
+        <result column="description" property="description"/>
+        <result column="date" property="date"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT id, type, amount, description, date, created_at, updated_at
+        FROM transactions
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND date &lt;= #{endDate}
+            </if>
+            <if test="search != null and search != ''">
+                AND description LIKE CONCAT('%', #{search}, '%')
+            </if>
+        </where>
+        ORDER BY date DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countByCondition" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM transactions
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND date &lt;= #{endDate}
+            </if>
+            <if test="search != null and search != ''">
+                AND description LIKE CONCAT('%', #{search}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT id, type, amount, description, date, created_at, updated_at
+        FROM transactions
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.petshop.backend.entity.Transaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO transactions (type, amount, description, date)
+        VALUES (#{type}, #{amount}, #{description}, #{date})
+    </insert>
+
+    <update id="update" parameterType="com.petshop.backend.entity.Transaction">
+        UPDATE transactions
+        SET type = #{type},
+            amount = #{amount},
+            description = #{description},
+            date = #{date}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM transactions
+        WHERE id = #{id}
+    </delete>
+
+    <select id="getStatistics" resultType="java.util.HashMap">
+        SELECT
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS totalIncome,
+            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS totalExpense,
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) AS netIncome,
+            COALESCE(SUM(CASE WHEN type = 'income' THEN 1 ELSE 0 END), 0) AS incomeCount,
+            COALESCE(SUM(CASE WHEN type = 'expense' THEN 1 ELSE 0 END), 0) AS expenseCount
+        FROM transactions
+        <where>
+            <if test="startDate != null and startDate != ''">
+                AND date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND date &lt;= #{endDate}
+            </if>
+        </where>
+    </select>
+
+</mapper>
