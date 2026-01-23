@@ -144,8 +144,64 @@ generate_secrets() {
         MYSQL_PASSWORD=$(openssl rand -base64 16 | tr -d '/+=')
         JWT_SECRET=$(openssl rand -base64 32 | tr -d '/+=')
 
-        # 获取服务器 IP
-        SERVER_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "your-server-ip")
+        # 智能获取服务器地址（多种方法）
+        print_info "正在获取服务器地址..."
+
+        # 方法1: 检查主机名（可能是域名）
+        HOSTNAME=$(hostname -f 2>/dev/null)
+
+        # 方法2: 检查网卡绑定的公网IP
+        LOCAL_IP=$(hostname -I | awk '{print $1}')
+
+        # 方法3: 从外部服务获取公网IP
+        PUBLIC_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || \
+                    curl -s --max-time 5 icanhazip.com 2>/dev/null || \
+                    curl -s --max-time 5 ipinfo.io/ip 2>/dev/null || \
+                    echo "")
+
+        # 方法4: 从网络接口获取主要IP
+        INTERFACE_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "")
+
+        # 选择最佳的 IP 地址
+        if [ -n "$PUBLIC_IP" ] && [[ ! "$PUBLIC_IP" =~ ^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.) ]]; then
+            # 优先使用公网 IP（排除内网IP）
+            SERVER_IP=$PUBLIC_IP
+            print_info "使用公网 IP: $SERVER_IP"
+        elif [ -n "$INTERFACE_IP" ]; then
+            # 使用网络接口 IP
+            SERVER_IP=$INTERFACE_IP
+            print_info "使用网络接口 IP: $SERVER_IP"
+        elif [ -n "$LOCAL_IP" ]; then
+            # 使用本地 IP
+            SERVER_IP=$LOCAL_IP
+            print_warn "使用本地 IP: $SERVER_IP"
+        else
+            # 兜底使用占位符
+            SERVER_IP="your-server-ip"
+            print_warn "无法自动获取 IP，使用占位符: $SERVER_IP"
+        fi
+
+        # 询问用户是否有域名
+        echo ""
+        print_warn "检测到服务器地址: $SERVER_IP"
+        echo ""
+        read -p "你有域名吗？(y/N): " has_domain
+        echo ""
+
+        if [[ $has_domain =~ ^[Yy]$ ]]; then
+            read -p "请输入域名 (例如: petshop.example.com): " user_domain
+            if [ -n "$user_domain" ]; then
+                SERVER_DOMAIN="http://$user_domain"
+                print_info "将使用域名: $SERVER_DOMAIN"
+            else
+                SERVER_DOMAIN="http://$SERVER_IP"
+                print_warn "域名未输入，将使用 IP: $SERVER_DOMAIN"
+            fi
+        else
+            SERVER_DOMAIN="http://$SERVER_IP"
+            print_info "将使用 IP 地址: $SERVER_DOMAIN"
+        fi
+        echo ""
 
         # 创建 .env 文件
         cat > .env << EOF
@@ -163,7 +219,7 @@ JWT_SECRET=$JWT_SECRET
 JWT_EXPIRATION=7200
 
 # 服务器配置
-SERVER_DOMAIN=http://$SERVER_IP
+SERVER_DOMAIN=$SERVER_DOMAIN
 
 # 文件上传配置
 FILE_UPLOAD_DIR=/app/uploads/images
@@ -184,6 +240,7 @@ EOF
 
 # 生成时间: $(date)
 # 服务器IP: $SERVER_IP
+# 服务器域名: $SERVER_DOMAIN
 
 # MySQL root 密码
 MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
@@ -199,7 +256,7 @@ JWT_SECRET=$JWT_SECRET
 密码: admin123
 
 # 系统访问地址
-http://$SERVER_IP
+$SERVER_DOMAIN
 
 # 请将此文件保存在安全的地方！
 EOF
