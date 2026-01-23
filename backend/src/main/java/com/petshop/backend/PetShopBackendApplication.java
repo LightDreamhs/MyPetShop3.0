@@ -14,6 +14,5 @@ public class PetShopBackendApplication {
     public static void main(String[] args) {
         SpringApplication.run(PetShopBackendApplication.class, args);
         System.out.println("宠物店后台管理系统启动成功！");
-        System.out.println("API文档地址: http://localhost:8080/api/v1");
     }
 }

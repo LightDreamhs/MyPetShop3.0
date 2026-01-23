@@ -5,6 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableRow, TableCell } from '../components/ui/Table';
+import { ImageUpload } from '../components/ui/ImageUpload';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import type { Product, ProductFormData } from '../types';
 
@@ -477,12 +478,13 @@ export const InventoryPage: React.FC = () => {
               required
             />
           </div>
-          <Input
-            label="商品图片URL（选填）"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-            placeholder="https://...（不填则使用默认图片）"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">商品图片（选填）</label>
+            <ImageUpload
+              value={formData.imageUrl}
+              onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">商品描述</label>
             <textarea
@@ -576,12 +578,13 @@ export const InventoryPage: React.FC = () => {
               required
             />
           </div>
-          <Input
-            label="商品图片URL（选填）"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-            placeholder="https://...（不填则使用默认图片）"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">商品图片（选填）</label>
+            <ImageUpload
+              value={formData.imageUrl}
+              onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">商品描述</label>
             <textarea

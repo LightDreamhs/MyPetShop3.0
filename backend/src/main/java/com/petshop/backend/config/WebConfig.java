@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -39,9 +40,23 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/auth/login",
                         "/auth/register",
+                        "/upload/**",
+                        "/uploads/**",
                         "/error",
                         "/swagger-resources/**",
                         "/v3/api-docs/**"
                 );
+    }
+
+    /**
+     * 配置静态资源映射
+     * 将上传目录映射到 /uploads/** 路径，使上传的文件可以通过HTTP访问
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 映射上传目录到静态资源
+        // 注意：使用 file: 前缀表示从文件系统加载资源
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:uploads/images/");
     }
 }

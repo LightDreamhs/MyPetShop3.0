@@ -2,12 +2,16 @@ package com.petshop.backend.service.impl;
 
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.entity.ConsumptionRecord;
+import com.petshop.backend.entity.Customer;
+import com.petshop.backend.entity.Transaction;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.ConsumptionRecordMapper;
 import com.petshop.backend.mapper.CustomerMapper;
+import com.petshop.backend.mapper.TransactionMapper;
 import com.petshop.backend.service.ConsumptionRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,6 +24,7 @@ public class ConsumptionRecordServiceImpl implements ConsumptionRecordService {
 
     private final ConsumptionRecordMapper consumptionRecordMapper;
     private final CustomerMapper customerMapper;
+    private final TransactionMapper transactionMapper;
 
     @Override
     public PageResult<ConsumptionRecord> findByCustomerIdAndPage(Long customerId, Integer page, Integer pageSize, String startDate, String endDate) {
@@ -48,18 +53,34 @@ public class ConsumptionRecordServiceImpl implements ConsumptionRecordService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public ConsumptionRecord create(Long customerId, ConsumptionRecord record) {
         // 检查客户是否存在
-        if (customerMapper.findById(customerId) == null) {
+        Customer customer = customerMapper.findById(customerId);
+        if (customer == null) {
             throw new BusinessException(4001, "客户不存在");
         }
 
         record.setCustomerId(customerId);
         consumptionRecordMapper.insert(record);
+
+        // 如果有消费金额，自动创建财务记录（收入）
+        if (record.getAmount() != null && record.getAmount() > 0) {
+            Transaction transaction = new Transaction();
+            transaction.setType("income");
+            transaction.setAmount(record.getAmount());
+            transaction.setDate(record.getDate());
+            // 描述格式：客户 {宠物名} - {消费项目}
+            transaction.setDescription(String.format("客户 %s - %s",
+                    customer.getPetName(), record.getItem()));
+            transactionMapper.insert(transaction);
+        }
+
         return record;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public ConsumptionRecord update(Long id, ConsumptionRecord record) {
         // 检查记录是否存在
         ConsumptionRecord existingRecord = consumptionRecordMapper.findById(id);
@@ -73,6 +94,7 @@ public class ConsumptionRecordServiceImpl implements ConsumptionRecordService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
         // 检查记录是否存在
         ConsumptionRecord existingRecord = consumptionRecordMapper.findById(id);

@@ -6,3 +6,4 @@ export { Card, CardHeader, CardContent, CardTitle } from './Card';
 export { Dialog } from './Dialog';
 export { Badge } from './Badge';
 export { Table, TableRow, TableCell } from './Table';
+export { ImageUpload } from './ImageUpload';

@@ -1,0 +1,353 @@
+#!/bin/bash
+
+# ==========================================
+# 宠物店管理系统 - 一键部署脚本
+# ==========================================
+
+set -e  # 遇到错误立即退出
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# 打印函数
+print_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 检查是否为 root 用户
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        print_error "请使用 root 用户或 sudo 运行此脚本"
+        exit 1
+    fi
+}
+
+# 检查系统兼容性
+check_system() {
+    print_info "检查系统兼容性..."
+
+    # 检查操作系统
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+        print_info "检测到操作系统: $OS"
+    else
+        print_error "无法检测操作系统"
+        exit 1
+    fi
+
+    # 检查系统架构
+    ARCH=$(uname -m)
+    if [ "$ARCH" != "x86_64" ]; then
+        print_warn "系统架构 $ARCH 可能不完全兼容"
+    fi
+}
+
+# 安装 Docker
+install_docker() {
+    print_info "检查 Docker 安装状态..."
+
+    if command -v docker &> /dev/null; then
+        DOCKER_VERSION=$(docker --version | awk '{print $3}' | sed 's/,//')
+        print_info "Docker 已安装: $DOCKER_VERSION"
+    else
+        print_info "正在安装 Docker..."
+        curl -fsSL https://get.docker.com | bash -s docker
+        print_info "Docker 安装完成"
+    fi
+
+    # 启动 Docker 服务
+    systemctl start docker
+    systemctl enable docker
+
+    print_info "Docker 版本: $(docker --version)"
+}
+
+# 安装 Docker Compose
+install_docker_compose() {
+    print_info "检查 Docker Compose 安装状态..."
+
+    if docker compose version &> /dev/null; then
+        COMPOSE_VERSION=$(docker compose version --short)
+        print_info "Docker Compose 已安装: $COMPOSE_VERSION"
+    else
+        print_info "正在安装 Docker Compose..."
+        if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+            apt update
+            apt install -y docker-compose
+        elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ]; then
+            yum install -y docker-compose
+        else
+            print_error "不支持的操作系统: $OS"
+            exit 1
+        fi
+        print_info "Docker Compose 安装完成"
+    fi
+
+    print_info "Docker Compose 版本: $(docker compose version --short)"
+}
+
+# 安装 Maven
+install_maven() {
+    print_info "检查 Maven 安装状态..."
+
+    if command -v mvn &> /dev/null; then
+        MAVEN_VERSION=$(mvn -version | head -n 1 | awk '{print $3}')
+        print_info "Maven 已安装: $MAVEN_VERSION"
+    else
+        print_info "正在安装 Maven..."
+        if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+            apt update
+            apt install -y maven
+        elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ]; then
+            yum install -y maven
+        fi
+        print_info "Maven 安装完成"
+    fi
+}
+
+# 配置防火墙
+configure_firewall() {
+    print_info "配置防火墙..."
+
+    if command -v ufw &> /dev/null; then
+        print_info "配置 UFW 防火墙..."
+        ufw allow 22/tcp &> /dev/null || true
+        ufw allow 80/tcp &> /dev/null || true
+        ufw allow 443/tcp &> /dev/null || true
+        print_info "防火墙规则已添加"
+    else
+        print_warn "未检测到 UFW，请手动配置防火墙规则"
+    fi
+}
+
+# 生成安全密钥
+generate_secrets() {
+    print_info "生成安全密钥..."
+
+    if [ ! -f .env ]; then
+        print_info "创建 .env 文件..."
+
+        # 生成随机密码
+        MYSQL_ROOT_PASSWORD=$(openssl rand -base64 16 | tr -d '/+=')
+        MYSQL_PASSWORD=$(openssl rand -base64 16 | tr -d '/+=')
+        JWT_SECRET=$(openssl rand -base64 32 | tr -d '/+=')
+
+        # 获取服务器 IP
+        SERVER_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "your-server-ip")
+
+        # 创建 .env 文件
+        cat > .env << EOF
+# ==========================================
+# 宠物店管理系统 - 环境变量配置
+# ==========================================
+# 生成时间: $(date)
+
+# MySQL 数据库配置
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+MYSQL_PASSWORD=$MYSQL_PASSWORD
+
+# JWT 配置
+JWT_SECRET=$JWT_SECRET
+JWT_EXPIRATION=7200
+
+# 服务器配置
+SERVER_DOMAIN=http://$SERVER_IP
+
+# 文件上传配置
+FILE_UPLOAD_DIR=/app/uploads/images
+MAX_FILE_SIZE=5
+
+# 应用配置
+SPRING_PROFILES_ACTIVE=production
+TZ=Asia/Shanghai
+EOF
+
+        print_info "环境变量文件已创建: .env"
+
+        # 保存密码信息
+        cat > .env.backup << EOF
+# ==========================================
+# 重要信息 - 请妥善保存！
+# ==========================================
+
+# 生成时间: $(date)
+# 服务器IP: $SERVER_IP
+
+# MySQL root 密码
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+
+# MySQL 应用密码
+MYSQL_PASSWORD=$MYSQL_PASSWORD
+
+# JWT 密钥
+JWT_SECRET=$JWT_SECRET
+
+# 管理员登录账号
+用户名: admin
+密码: admin123
+
+# 系统访问地址
+http://$SERVER_IP
+
+# 请将此文件保存在安全的地方！
+EOF
+
+        chmod 600 .env.backup
+
+        print_warn "================================"
+        print_warn "重要信息已保存到 .env.backup 文件"
+        print_warn "请下载并妥善保管此文件！"
+        print_warn "================================"
+
+    else
+        print_info ".env 文件已存在，跳过生成"
+    fi
+}
+
+# 构建后端 JAR 包
+build_backend() {
+    print_info "构建后端 JAR 包..."
+
+    cd ../backend
+
+    print_info "正在下载依赖并编译..."
+    mvn clean package -DskipTests -q
+
+    if [ -f target/pet-shop-backend-*.jar ]; then
+        print_info "后端构建成功"
+        ls -lh target/*.jar
+    else
+        print_error "后端构建失败"
+        exit 1
+    fi
+
+    cd ../deployment
+}
+
+# 启动服务
+start_services() {
+    print_info "启动 Docker 服务..."
+
+    # 停止旧容器
+    docker compose down &> /dev/null || true
+
+    # 构建并启动
+    print_info "正在构建镜像并启动容器..."
+    docker compose up -d --build
+
+    print_info "等待服务启动..."
+    sleep 10
+
+    # 检查服务状态
+    print_info "检查服务状态..."
+    docker compose ps
+}
+
+# 验证部署
+verify_deployment() {
+    print_info "验证部署..."
+
+    # 等待服务健康检查通过
+    print_info "等待服务健康检查（最多等待120秒）..."
+
+    for i in {1..12}; do
+        sleep 10
+
+        HEALTHY=true
+
+        # 检查 MySQL
+        if ! docker exec petshop-mysql mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD} &> /dev/null; then
+            print_warn "MySQL 未就绪"
+            HEALTHY=false
+        fi
+
+        # 检查后端
+        if ! curl -s http://localhost:8080/api/v1/actuator/health &> /dev/null; then
+            print_warn "后端未就绪"
+            HEALTHY=false
+        fi
+
+        # 检查前端
+        if ! curl -s http://localhost/ &> /dev/null; then
+            print_warn "前端未就绪"
+            HEALTHY=false
+        fi
+
+        if [ "$HEALTHY" = true ]; then
+            print_info "所有服务已就绪！"
+            break
+        fi
+    done
+
+    if [ "$HEALTHY" = false ]; then
+        print_warn "某些服务可能未完全启动，请稍后检查"
+    fi
+}
+
+# 显示部署信息
+show_info() {
+    print_info "================================"
+    print_info "部署完成！"
+    print_info "================================"
+    echo ""
+    print_info "访问地址:"
+    if [ -f .env ]; then
+        grep "SERVER_DOMAIN" .env
+    fi
+    echo ""
+    print_info "默认登录账号:"
+    echo "  用户名: admin"
+    echo "  密码: admin123"
+    echo ""
+    print_warn "重要提示:"
+    print_warn "1. 请立即下载 .env.backup 文件并妥善保管"
+    print_warn "2. 首次登录后请立即修改管理员密码"
+    print_warn "3. 请配置云服务商安全组规则"
+    print_warn "4. 建议定期备份数据"
+    echo ""
+    print_info "常用命令:"
+    echo "  查看服务状态: docker compose ps"
+    echo "  查看日志: docker compose logs -f"
+    echo "  重启服务: docker compose restart"
+    echo "  停止服务: docker compose down"
+    echo ""
+    print_info "详细文档请查看: README.md"
+    print_info "================================"
+}
+
+# 主函数
+main() {
+    print_info "================================"
+    print_info "宠物店管理系统 - 一键部署脚本"
+    print_info "================================"
+    echo ""
+
+    check_root
+    check_system
+    install_docker
+    install_docker_compose
+    install_maven
+    configure_firewall
+    generate_secrets
+    build_backend
+    start_services
+    verify_deployment
+    show_info
+
+    print_info "部署脚本执行完成！"
+}
+
+# 执行主函数
+main
