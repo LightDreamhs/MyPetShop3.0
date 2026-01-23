@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.petshop.backend.mapper.UserMapper">
+
+    <resultMap id="BaseResultMap" type="com.petshop.backend.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="nickname" property="nickname"/>
+        <result column="avatar" property="avatar"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findByUsername" resultMap="BaseResultMap">
+        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        FROM users
+        WHERE username = #{username}
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        FROM users
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        FROM users
+        <where>
+            <if test="search != null and search != ''">
+                AND (username LIKE CONCAT('%', #{search}, '%')
+                OR nickname LIKE CONCAT('%', #{search}, '%'))
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countByCondition" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM users
+        <where>
+            <if test="search != null and search != ''">
+                AND (username LIKE CONCAT('%', #{search}, '%')
+                OR nickname LIKE CONCAT('%', #{search}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <insert id="insert" parameterType="com.petshop.backend.entity.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, password, nickname, avatar)
+        VALUES (#{username}, #{password}, #{nickname}, #{avatar})
+    </insert>
+
+    <update id="update" parameterType="com.petshop.backend.entity.User">
+        UPDATE users
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
+
+</mapper>
