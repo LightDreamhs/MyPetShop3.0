@@ -98,6 +98,50 @@ install_docker_compose() {
     print_info "Docker Compose 版本: $(docker compose version --short)"
 }
 
+# 安装 JDK 17
+install_jdk() {
+    print_info "检查 JDK 17 安装状态..."
+
+    if command -v java &> /dev/null; then
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}')
+        print_info "已安装 Java 版本: $JAVA_VERSION"
+
+        # 检查是否为 JDK 17
+        if [[ $JAVA_VERSION == *"17"* ]]; then
+            print_info "JDK 17 已安装"
+            return 0
+        else
+            print_warn "当前 Java 版本不是 JDK 17，需要升级"
+        fi
+    fi
+
+    print_info "正在安装 JDK 17..."
+    if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+        apt update
+        # 安装 OpenJDK 17
+        apt install -y openjdk-17-jdk
+
+        # 设置 Java 17 为默认版本
+        update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+        update-alternatives --set javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac
+
+    elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ]; then
+        yum install -y java-17-openjdk-devel
+    else
+        print_error "不支持的操作系统: $OS"
+        exit 1
+    fi
+
+    # 验证安装
+    JAVA_VERSION=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}')
+    print_info "JDK 17 安装完成: $JAVA_VERSION"
+
+    # 设置 JAVA_HOME 环境变量
+    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+    echo "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> ~/.bashrc
+    echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ~/.bashrc
+}
+
 # 安装 Maven
 install_maven() {
     print_info "检查 Maven 安装状态..."
@@ -395,6 +439,7 @@ main() {
     check_system
     install_docker
     install_docker_compose
+    install_jdk
     install_maven
     configure_firewall
     generate_secrets
