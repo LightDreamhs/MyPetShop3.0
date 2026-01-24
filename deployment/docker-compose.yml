@@ -20,8 +20,8 @@ services:
     volumes:
       # 持久化数据库数据
       - mysql-data:/var/lib/mysql
-      # 初始化脚本
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # 初始化脚本目录（挂载整个目录，避免文件被识别为目录的问题）
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
       # MySQL 配置
       - ./my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     networks:
