@@ -80,8 +80,8 @@ services:
   # 前端服务
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ../frontend
+      dockerfile: ../deployment/Dockerfile.frontend
       args:
         VITE_API_BASE_URL: /api/v1
     container_name: petshop-frontend
