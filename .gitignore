@@ -1,0 +1,37 @@
+# 编译输出
+backend/target/
+frontend/dist/
+frontend/node_modules/
+
+# 上传文件目录（运行时生成）
+backend/uploads/
+
+# IDE 配置
+backend/.idea/
+.idea/
+*.iml
+
+# 系统文件
+nul
+.DS_Store
+Thumbs.db
+
+# 环境配置（前端示例文件保留）
+frontend/.env
+frontend/.env.local
+
+# Claude 配置
+.claude/settings.local.json
+
+# 部署和 Docker 相关
+backend/docker-compose.yml
+backend/docker-*.bat
+backend/docker-*.sh
+
+# 项目配置文件（不上传）
+claude.md
+
+# 参考文档（只保留 API 接口文档）
+reference/*.png
+reference/*.md
+!reference/API接口文档.md
