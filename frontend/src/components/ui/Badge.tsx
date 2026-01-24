@@ -8,7 +8,7 @@ interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = ({
   children,
-  variant = 'default',
+  variant: _variant,
   className = '',
 }) => {
   return (
