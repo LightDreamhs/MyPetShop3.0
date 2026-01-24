@@ -1,0 +1,35 @@
+# Docker 构建忽略文件
+# 避免将不必要的文件复制到 Docker 镜像中
+
+# 部署相关文件（不需要在前端镜像中）
+deploy.bat
+deploy.sh
+docker-compose.yml
+my.cnf
+my-2g.cnf
+init.sql
+.env.example
+README.md
+QUICKREF.md
+2G-SERVER-GUIDE.md
+deploymentmethod.md
+DOCKER-MIRROR-TROUBLESHOOTING.md
+.gitignore
+
+# 后端相关
+backend/
+
+# 其他不需要的文件
+.git/
+.github/
+reference/
+claude.md
+.git
+
+# 临时文件
+*.tmp
+*.log
+*.swp
+*~
+.DS_Store
+Thumbs.db
