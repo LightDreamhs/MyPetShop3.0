@@ -1,0 +1,23 @@
+# Environment variables (contains sensitive data)
+.env
+.env.backup
+.env.local
+
+# Backup files
+*.sql
+*.sql.gz
+*.tar.gz
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
