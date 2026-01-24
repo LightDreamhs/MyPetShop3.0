@@ -794,10 +794,17 @@ services:
 
 如遇到问题，请按以下顺序排查：
 
-1. 查看本文档的"故障排查"部分
-2. 查看容器日志：`docker-compose logs -f`
-3. 搜索错误信息
-4. 提交 Issue 到项目仓库
+1. **查看详细故障排查文档**：[DEPLOYMENT-TROUBLESHOOTING.md](DEPLOYMENT-TROUBLESHOOTING.md)
+2. 查看本文档的"故障排查"部分
+3. 查看容器日志：`docker-compose logs -f`
+4. 搜索错误信息
+5. 提交 Issue 到项目仓库
+
+### 📚 相关文档
+
+- [DEPLOYMENT-TROUBLESHOOTING.md](DEPLOYMENT-TROUBLESHOOTING.md) - 详细故障排查指南
+- [DOCKER-MIRROR-TROUBLESHOOTING.md](DOCKER-MIRROR-TROUBLESHOOTING.md) - Docker 镜像加速问题
+- [2G-SERVER-GUIDE.md](2G-SERVER-GUIDE.md) - 2G 服务器性能优化指南
 
 ---
 
