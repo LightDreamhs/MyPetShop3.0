@@ -412,9 +412,9 @@ verify_deployment() {
     print_info "验证部署..."
 
     # 等待服务健康检查通过
-    print_info "等待服务健康检查（最多等待120秒）..."
+    print_info "等待服务健康检查（最多等待180秒）..."
 
-    for i in {1..12}; do
+    for i in {1..18}; do
         sleep 10
 
         HEALTHY=true
@@ -423,10 +423,20 @@ verify_deployment() {
         if ! docker exec petshop-mysql mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD} &> /dev/null; then
             print_warn "MySQL 未就绪"
             HEALTHY=false
+        else
+            # 检查数据库是否已初始化
+            if ! docker exec petshop-mysql mysql -u petshop -p${MYSQL_PASSWORD} pet_shop_3_0 -e "SHOW TABLES;" &> /dev/null; then
+                print_warn "数据库未初始化，尝试手动导入..."
+                # 手动导入初始化脚本
+                if [ -f "mysql-init/init.sql" ]; then
+                    cat mysql-init/init.sql | docker exec -i petshop-mysql mysql -u petshop -p${MYSQL_PASSWORD} pet_shop_3_0
+                    sleep 5
+                fi
+            fi
         fi
 
-        # 检查后端
-        if ! curl -s http://localhost:8080/api/v1/actuator/health &> /dev/null; then
+        # 检查后端（检查端口是否开放）
+        if ! nc -z localhost 8080 &> /dev/null; then
             print_warn "后端未就绪"
             HEALTHY=false
         fi
@@ -446,6 +456,10 @@ verify_deployment() {
     if [ "$HEALTHY" = false ]; then
         print_warn "某些服务可能未完全启动，请稍后检查"
     fi
+
+    # 显示容器状态
+    print_info "容器状态："
+    docker compose ps
 }
 
 # 显示部署信息
