@@ -3,6 +3,7 @@ import { useUserStore } from '../stores/userStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { ImageUpload } from '../components/ui/ImageUpload';
 import { Search, Plus, Edit, Trash2, User as UserIcon } from 'lucide-react';
 import type { User, UserFormData } from '../types';
 
@@ -254,13 +255,10 @@ export const UsersPage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
-            <input
-              type="url"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <label className="block text-sm font-medium text-gray-700 mb-1">头像（选填）</label>
+            <ImageUpload
               value={formData.avatar}
-              onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              placeholder="https://...（不填则使用默认头像）"
+              onChange={(url) => setFormData({ ...formData, avatar: url })}
             />
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -323,13 +321,10 @@ export const UsersPage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
-            <input
-              type="url"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <label className="block text-sm font-medium text-gray-700 mb-1">头像（选填）</label>
+            <ImageUpload
               value={formData.avatar}
-              onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              placeholder="https://...（不填则使用默认头像）"
+              onChange={(url) => setFormData({ ...formData, avatar: url })}
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}

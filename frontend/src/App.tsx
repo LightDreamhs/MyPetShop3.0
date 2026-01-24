@@ -11,15 +11,31 @@ import { UsersPage } from './pages/UsersPage';
 
 // 私有路由组件
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, token, getCurrentUser } = useAuthStore();
+  const { isAuthenticated, token, getCurrentUser, isLoading } = useAuthStore();
+  const [isVerifying, setIsVerifying] = React.useState(true);
 
   useEffect(() => {
-    if (token && !isAuthenticated) {
-      getCurrentUser();
+    // 如果有 token，始终验证其有效性（不管 isAuthenticated 状态）
+    if (token) {
+      getCurrentUser()
+        .finally(() => {
+          setIsVerifying(false);
+        });
+    } else {
+      setIsVerifying(false);
     }
-  }, [token, isAuthenticated, getCurrentUser]);
+  }, [token]); // 只依赖 token
 
-  if (!token) {
+  // 正在验证用户信息时显示加载状态
+  if (isVerifying || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">加载中...</div>
+      </div>
+    );
+  }
+
+  if (!token || !isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

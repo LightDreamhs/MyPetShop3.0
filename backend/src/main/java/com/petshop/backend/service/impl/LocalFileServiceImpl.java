@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -23,17 +25,25 @@ public class LocalFileServiceImpl implements FileService {
     @Value("${file.server-domain:http://localhost:8080}")
     private String serverDomain;
 
+    private String absoluteUploadDir;
+
     /**
      * 初始化时创建上传目录
      */
     @PostConstruct
     public void init() {
-        File dir = new File(uploadDir);
+        // 获取项目根目录的绝对路径
+        Path projectRoot = Paths.get(System.getProperty("user.dir"));
+        absoluteUploadDir = projectRoot.resolve(uploadDir).toString();
+
+        File dir = new File(absoluteUploadDir);
         if (!dir.exists()) {
             boolean created = dir.mkdirs();
             if (created) {
                 System.out.println("上传目录创建成功: " + dir.getAbsolutePath());
             }
+        } else {
+            System.out.println("上传目录已存在: " + dir.getAbsolutePath());
         }
     }
 
@@ -65,8 +75,8 @@ public class LocalFileServiceImpl implements FileService {
         String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
         String filename = UUID.randomUUID() + extension;
 
-        // 5. 保存文件
-        File dest = new File(uploadDir + filename);
+        // 5. 保存文件（使用绝对路径）
+        File dest = new File(absoluteUploadDir, filename);
         file.transferTo(dest);
 
         // 6. 返回访问URL
