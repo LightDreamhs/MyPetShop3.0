@@ -59,6 +59,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/auth/register",
                         "/upload/**",
                         "/uploads/images/**",
+                        "/api/v1/uploads/images/**",  // 排除包含 context-path 的静态资源路径
                         "/error",
                         "/swagger-resources/**",
                         "/v3/api-docs/**"
