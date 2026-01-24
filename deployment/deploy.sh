@@ -98,6 +98,57 @@ install_docker_compose() {
     print_info "Docker Compose 版本: $(docker compose version --short)"
 }
 
+# 配置 Docker 镜像加速器
+configure_docker_mirror() {
+    print_info "配置 Docker 镜像加速器..."
+
+    # 创建 Docker 配置目录
+    mkdir -p /etc/docker
+
+    # 备份原有配置（如果存在）
+    if [ -f /etc/docker/daemon.json ]; then
+        cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+        print_warn "已备份原 Docker 配置文件"
+    fi
+
+    # 配置国内镜像加速器
+    cat > /etc/docker/daemon.json << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://dockerproxy.com",
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://docker.nju.edu.cn"
+  ],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+    # 重启 Docker 服务
+    print_info "重启 Docker 服务..."
+    systemctl daemon-reload
+    systemctl restart docker
+
+    # 等待 Docker 启动
+    sleep 3
+
+    # 验证配置
+    if systemctl is-active --quiet docker; then
+        print_info "Docker 镜像加速器配置成功 ✅"
+        docker info | grep -A 5 "Registry Mirrors" || print_info "镜像加速器已生效"
+    else
+        print_error "Docker 启动失败，正在恢复备份..."
+        if [ -f /etc/docker/daemon.json.bak ]; then
+            mv /etc/docker/daemon.json.bak /etc/docker/daemon.json
+            systemctl restart docker
+        fi
+    fi
+}
+
 # 安装 JDK 17
 install_jdk() {
     print_info "检查 JDK 17 安装状态..."
@@ -439,6 +490,7 @@ main() {
     check_system
     install_docker
     install_docker_compose
+    configure_docker_mirror
     install_jdk
     install_maven
     configure_firewall
