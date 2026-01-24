@@ -31,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authApi.login(username);
           const { user, accessToken } = response.data.data;
+          // 同时存储到 localStorage（供 axios 拦截器使用）和 zustand state（供组件使用）
           localStorage.setItem('access_token', accessToken);
           set({
             user,
@@ -53,8 +54,8 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('登出请求失败:', error);
         } finally {
+          // 清除 localStorage 和 zustand state
           localStorage.removeItem('access_token');
-          localStorage.removeItem('user');
           set({
             user: null,
             token: null,
@@ -74,6 +75,8 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           });
         } catch (error: any) {
+          // Token 过期或无效，清除所有状态和 localStorage
+          localStorage.removeItem('access_token');
           set({
             user: null,
             token: null,

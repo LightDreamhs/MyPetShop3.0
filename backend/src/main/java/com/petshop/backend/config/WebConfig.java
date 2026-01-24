@@ -1,12 +1,17 @@
 package com.petshop.backend.config;
 
 import com.petshop.backend.interceptor.JwtInterceptor;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Web配置类
@@ -16,6 +21,18 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
+
+    @Value("${file.upload-dir:uploads/images/}")
+    private String uploadDir;
+
+    private String absoluteUploadDir;
+
+    @PostConstruct
+    public void init() {
+        // 获取项目根目录的绝对路径
+        Path projectRoot = Paths.get(System.getProperty("user.dir"));
+        absoluteUploadDir = projectRoot.resolve(uploadDir).toAbsolutePath().toString();
+    }
 
     /**
      * 配置跨域
@@ -41,7 +58,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/auth/login",
                         "/auth/register",
                         "/upload/**",
-                        "/uploads/**",
+                        "/uploads/images/**",
                         "/error",
                         "/swagger-resources/**",
                         "/v3/api-docs/**"
@@ -50,13 +67,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     /**
      * 配置静态资源映射
-     * 将上传目录映射到 /uploads/** 路径，使上传的文件可以通过HTTP访问
+     * 将上传目录映射到 /uploads/images/** 路径，使上传的文件可以通过HTTP访问
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 映射上传目录到静态资源
-        // 注意：使用 file: 前缀表示从文件系统加载资源
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/images/");
+        // URL路径 /uploads/images/xxx.jpg 映射到 绝对路径/xxx.jpg
+        registry.addResourceHandler("/uploads/images/**")
+                .addResourceLocations("file:" + absoluteUploadDir.replace("\\", "/") + "/");
     }
 }
