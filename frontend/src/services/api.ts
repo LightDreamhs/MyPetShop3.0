@@ -137,7 +137,7 @@ export const consumptionRecordApi = {
 
 export const transactionApi = {
   // 获取财务记录列表
-  getTransactions: (params?: { page?: number; pageSize?: number; type?: string; startDate?: string; endDate?: string }) =>
+  getTransactions: (params?: { page?: number; pageSize?: number; type?: string; startDate?: string; endDate?: string; search?: string }) =>
     axiosInstance.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
 
   // 获取财务记录详情

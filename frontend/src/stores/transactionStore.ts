@@ -13,7 +13,7 @@ interface TransactionState {
   error: string | null;
 
   // Actions
-  fetchTransactions: (params?: { page?: number; pageSize?: number; type?: string; startDate?: string; endDate?: string }) => Promise<void>;
+  fetchTransactions: (params?: { page?: number; pageSize?: number; type?: string; startDate?: string; endDate?: string; search?: string }) => Promise<void>;
   fetchStatistics: (params?: { startDate?: string; endDate?: string }) => Promise<void>;
   fetchTransaction: (id: number) => Promise<void>;
   createTransaction: (data: TransactionFormData) => Promise<void>;

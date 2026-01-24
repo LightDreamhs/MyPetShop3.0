@@ -3,18 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useCustomerStore } from '../stores/customerStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
+import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Search, Plus, Edit, X, Check, Trash2 } from 'lucide-react';
-import { MEMBER_LEVELS, getMemberStatusLabel, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
+import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
 import type { Customer, CustomerFormData } from '../types';
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     customers,
-    total,
     page,
     pageSize,
     isLoading,

@@ -4,7 +4,6 @@ import { transactionApi } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
 import { Plus, Search, Calendar, TrendingUp } from 'lucide-react';
 import type { TransactionFormData, Transaction } from '../types';
 

@@ -4,7 +4,6 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Table, TableRow, TableCell } from '../components/ui/Table';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import type { Product, ProductFormData } from '../types';

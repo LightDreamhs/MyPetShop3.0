@@ -96,10 +96,6 @@ export const UsersPage: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
-  const getDefaultAvatar = (nickname: string) => {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(nickname)}`;
-  };
-
   return (
     <div className="p-8">
       {/* 页面标题 */}
