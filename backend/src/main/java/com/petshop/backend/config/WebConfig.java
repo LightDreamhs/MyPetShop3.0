@@ -70,12 +70,14 @@ public class WebConfig implements WebMvcConfigurer {
      * 配置静态资源映射
      * 将上传目录映射到 /uploads/images/** 路径，使上传的文件可以通过HTTP访问
      * 注意：由于有 context-path=/api/v1，实际访问路径是 /api/v1/uploads/images/**
+     * Spring Boot 会自动在路径前加上 context-path，所以这里不需要写 /api/v1 前缀
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 映射上传目录到静态资源
-        // URL路径 /api/v1/uploads/images/xxx.jpg 映射到 绝对路径/xxx.jpg
-        registry.addResourceHandler("/api/v1/uploads/images/**")
+        // URL路径 /uploads/images/** 会自动变成 /api/v1/uploads/images/**
+        // 然后映射到 file:绝对路径/xxx.jpg
+        registry.addResourceHandler("/uploads/images/**")
                 .addResourceLocations("file:" + absoluteUploadDir.replace("\\", "/") + "/");
     }
 }
