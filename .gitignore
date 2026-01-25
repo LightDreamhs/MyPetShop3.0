@@ -1,0 +1,63 @@
+# ==========================================
+# MyPetShop3.0 - Git Ignore 配置
+# ==========================================
+
+# ---------- IDE 配置 ----------
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------- 日志文件 ----------
+*.log
+logs/
+
+# ---------- 编译输出 ----------
+target/
+build/
+out/
+dist/
+*.class
+
+# ---------- 依赖目录 ----------
+node_modules/
+.pnpm-store/
+
+# ---------- 环境配置（包含敏感信息）----------
+.env
+.env.local
+.env.*.local
+deployment/.env
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 测试/临时文件 ----------
+*.tmp
+*.temp
+*.bak
+nul
+*.nul
+
+# ---------- 上传文件（本地测试数据）----------
+backend/uploads/
+frontend/uploads/
+uploads/
+
+# ---------- 本地开发 Docker 文件 ----------
+backend/docker-compose.yml
+backend/docker-*.sh
+backend/docker-*.bat
+
+# ---------- 部署临时文件 ----------
+deployment/nul
+deployment/init.sql
+
+# ---------- 数据库备份 ----------
+*.sql.gz
+*.dump
+*.backup
