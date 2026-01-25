@@ -42,6 +42,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ==========================================
+# 配置项：选择远程仓库
+# ==========================================
+
+# 远程仓库配置（优先使用Gitee，失败则回退到GitHub）
+GIT_REMOTE_ORIGIN="gitee"  # 可选值: "gitee" 或 "origin" 或 "github"
+
+# 如果设置了环境变量GIT_REMOTE，则使用环境变量的值
+if [ -n "$GIT_REMOTE" ]; then
+    GIT_REMOTE_ORIGIN="$GIT_REMOTE"
+fi
+
+# 检查Gitee远程仓库是否存在，如果不存在则使用origin
+if ! git remote get-url "$GIT_REMOTE_ORIGIN" >/dev/null 2>&1; then
+    log_warning "Gitee远程仓库未配置，使用origin"
+    GIT_REMOTE_ORIGIN="origin"
+fi
+
+# ==========================================
 # 1. 检查Git更新
 # ==========================================
 log_info "=================================="
@@ -55,12 +73,12 @@ if [ ! -d "../.git" ]; then
 fi
 
 cd ..
-git fetch origin
+git fetch "$GIT_REMOTE_ORIGIN"
 
 # 获取当前版本
 CURRENT_COMMIT=$(git rev-parse HEAD)
 # 获取远程最新版本
-LATEST_COMMIT=$(git rev-parse origin/main)
+LATEST_COMMIT=$(git rev-parse "$GIT_REMOTE_ORIGIN/main")
 
 if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ]; then
     log_success "代码已是最新版本"
@@ -72,7 +90,7 @@ else
 
     # 查看更新内容
     log_info "更新内容："
-    git log --oneline HEAD..origin/main | head -10
+    git log --oneline HEAD.."$GIT_REMOTE_ORIGIN/main" | head -10
 
     read -p "是否继续更新？(y/n) " -n 1 -r
     echo
@@ -81,7 +99,7 @@ else
         exit 0
     fi
 
-    git pull origin main
+    git pull "$GIT_REMOTE_ORIGIN" main
     NEED_UPDATE=true
 fi
 
