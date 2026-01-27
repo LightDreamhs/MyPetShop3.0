@@ -1,0 +1,82 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+  # 生产环境关闭错误栈跟踪
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: pet-shop-backend
+
+  # 数据源配置（由 systemd 环境变量覆盖）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: PetShopHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+  # Jackson配置
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+  # 生产环境配置
+  main:
+    allow-circular-references: true
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.petshop.backend.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    call-setters-on-nulls: true
+    jdbc-type-for-null: 'null'
+    # 生产环境使用 slf4j 日志
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+# JWT配置（由环境变量覆盖）
+jwt:
+  secret: ${JWT_SECRET:defaultSecretKeyMustBeChangedInProduction}
+  expiration: ${JWT_EXPIRATION:7200}
+
+# 文件上传配置（关键！修复图片访问问题）
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:/var/www/petshop/uploads}
+  # 生产环境：只返回服务器域名，不包含 context-path
+  # 因为前端会通过 Nginx 访问 /uploads/images/
+  server-domain: ${FILE_SERVERDOMAIN:http://localhost}
+
+# 日志配置（生产环境）
+logging:
+  level:
+    root: INFO
+    com.petshop.backend: INFO
+    com.petshop.backend.mapper: WARN
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n'
+    file: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n'
+  file:
+    name: /var/www/petshop/logs/backend-spring.log
+    max-size: 100MB
+    max-history: 30
+  # 生产环境不输出 SQL 日志
