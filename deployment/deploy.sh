@@ -411,6 +411,17 @@ start_services() {
 verify_deployment() {
     print_info "验证部署..."
 
+    # 从 .env 文件加载环境变量
+    if [ -f .env ]; then
+        print_info "加载环境变量..."
+        set -a  # 自动导出所有变量
+        source .env
+        set +a
+    else
+        print_error ".env 文件不存在，无法加载环境变量"
+        return 1
+    fi
+
     # 等待服务健康检查通过
     print_info "等待服务健康检查（最多等待180秒）..."
 
