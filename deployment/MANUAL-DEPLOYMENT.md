@@ -1,11 +1,13 @@
 # 极简部署 - 手动操作指南
 
 > 适合想完全理解部署过程的用户
+>
+> 适配国内网络环境和 Ubuntu 系统（腾讯云）
 
 ## 📋 部署前准备
 
 ### 服务器要求
-- Ubuntu 20.04+ 或 CentOS 7+
+- **Ubuntu 20.04+**（本文档基于 Ubuntu 24.04 编写）
 - 至少 2GB RAM
 - 至少 20GB 磁盘空间
 - Root 或 sudo 权限
@@ -22,32 +24,75 @@ free -h
 df -h
 ```
 
+### 配置国内镜像源（可选，但推荐）
+
+```bash
+# 备份原有源
+sudo cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+
+# 使用阿里云镜像（Ubuntu 24.04 示例）
+sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null << EOF
+Types: deb
+URIs: https://mirrors.aliyun.com/ubuntu/
+Suites: noble noble-updates noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+
+# 更新软件包列表
+sudo apt update
+```
+
 ---
 
 ## 🚀 部署步骤
 
-### 第1步：安装基础软件
+### 第1步：安装 Docker
 
 ```bash
-# 更新软件包列表
+# 方法1：使用 apt 安装（推荐）
 sudo apt update
+sudo apt install -y docker.io docker-compose
 
-# 安装基础工具
-sudo apt install -y curl wget git vim
-
-# 安装 Docker
-curl -fsSL https://get.docker.com | bash
+# 启动 Docker
 sudo systemctl start docker
 sudo systemctl enable docker
 
+# 配置 Docker 国内镜像加速
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://dockerproxy.com",
+    "https://docker.mirrors.ustc.edu.cn"
+  ],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+# 重启 Docker 使配置生效
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
 # 验证 Docker
 docker --version
+docker info | grep -A 5 "Registry Mirrors"
+
+# 将当前用户添加到 docker 组（可选，避免每次 sudo）
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
 ### 第2步：安装 Java 17
 
 ```bash
-# 安装 OpenJDK 17
+# 使用 apt 安装 OpenJDK 17
+sudo apt update
 sudo apt install -y openjdk-17-jdk
 
 # 验证安装
@@ -56,39 +101,83 @@ java -version
 # 设置环境变量
 echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> ~/.bashrc
 source ~/.bashrc
+
+# 验证环境变量
+echo $JAVA_HOME
 ```
 
 ### 第3步：安装 Maven
 
 ```bash
-# 安装 Maven
+# 使用 apt 安装 Maven
 sudo apt install -y maven
+
+# 配置 Maven 使用阿里云镜像
+mkdir -p ~/.m2
+tee ~/.m2/settings.xml > /dev/null << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+          http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <mirrorOf>*</mirrorOf>
+      <name>Aliyun Maven</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>
+EOF
 
 # 验证安装
 mvn -version
 ```
 
-### 第4步：安装 Node.js（构建前端需要）
+### 第4步：安装 Node.js
 
 ```bash
-# 安装 Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-sudo apt install -y nodejs
+# 使用 apt 安装 Node.js（Ubuntu 24.04 自带较新版本）
+sudo apt update
+sudo apt install -y nodejs npm
 
 # 验证安装
 node --version
 npm --version
 
-# 安装 pnpm（可选，更快）
+# 如果版本低于 18.x，使用 NodeSource 仓库
+# curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# sudo apt install -y nodejs
+
+# 配置 npm 使用国内镜像
+npm config set registry https://registry.npmmirror.com
+
+# 安装 pnpm（推荐，更快）
 npm install -g pnpm
+
+# 配置 pnpm 使用国内镜像
+pnpm config set registry https://registry.npmmirror.com
+
+# 验证 pnpm
+pnpm --version
 ```
 
 ### 第5步：克隆项目代码
 
 ```bash
+# 安装 git
+sudo apt install -y git
+
 # 克隆项目
 cd /opt
-sudo git clone <你的仓库地址> MyPetShop3.0
+
+# 使用 Gitee（国内推荐，速度快）
+sudo git clone https://gitee.com/light-dreamz/my-pet-shop3.0.git MyPetShop3.0
+
+# 或者使用 GitHub（如果网络允许）
+# sudo git clone https://github.com/LightDreamhs/MyPetShop3.0.git MyPetShop3.0
+
 cd MyPetShop3.0
 
 # 查看项目结构
@@ -112,6 +201,7 @@ SERVER_IP=$(curl -s ifconfig.me)
 echo "================================"
 echo "MySQL Root 密码: $MYSQL_ROOT_PASSWORD"
 echo "MySQL 应用密码: $MYSQL_PASSWORD"
+echo "JWT 密钥: $JWT_SECRET"
 echo "================================"
 echo "请保存这些密码！"
 echo "================================"
@@ -122,9 +212,11 @@ MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
 MYSQL_PASSWORD=$MYSQL_PASSWORD
 JWT_SECRET=$JWT_SECRET
 SERVER_DOMAIN=http://$SERVER_IP
+SERVER_IP=$SERVER_IP
 EOF
 
 chmod 600 .env.manual
+echo "密码已保存到 .env.manual"
 ```
 
 ### 第7步：启动 MySQL 容器
@@ -159,7 +251,7 @@ sudo docker run -d \
 # 查看容器状态
 sudo docker ps | grep petshop-mysql
 
-# 等待 MySQL 初始化（大约20秒）
+# 等待 MySQL 初始化（大约20-30秒）
 echo "等待 MySQL 初始化..."
 sleep 20
 
@@ -172,7 +264,7 @@ sudo docker exec petshop-mysql mysql -u petshop -p$MYSQL_PASSWORD pet_shop_3_0 -
 ```bash
 cd /opt/MyPetShop3.0/backend
 
-# 清理并构建
+# 清理并构建（Maven 会使用配置好的阿里云镜像）
 sudo mvn clean package -DskipTests
 
 # 查看生成的 JAR 包
@@ -188,11 +280,14 @@ sudo cp target/pet-shop-backend-*.jar /opt/petshop/pet-shop-backend.jar
 ```bash
 cd /opt/MyPetShop3.0/frontend
 
-# 安装依赖
-# 如果有 pnpm：
+# 安装依赖（使用国内镜像）
 pnpm install
-# 或者用 npm：
+# 或者使用 npm
 # npm install
+
+# 检查镜像配置
+pnpm config get registry
+# 应该输出: https://registry.npmmirror.com
 
 # 构建前端（生产环境）
 VITE_API_BASE_URL=/api/v1 pnpm build
@@ -209,7 +304,7 @@ sudo rm -rf src/main/resources/static/*
 sudo cp -r ../frontend/dist/* src/main/resources/static/
 
 # 重新打包（包含前端文件）
-sudo mvn package -DskipTests
+sudo mvn clean package -DskipTests
 
 # 复制新的 JAR 包
 sudo cp target/pet-shop-backend-*.jar /opt/petshop/pet-shop-backend.jar
@@ -224,6 +319,9 @@ sudo mkdir -p /opt/petshop/logs
 
 # 设置权限
 sudo chmod -R 755 /opt/petshop
+
+# 验证目录
+ls -la /opt/petshop/
 ```
 
 ### 第11步：创建启动脚本
@@ -288,11 +386,16 @@ sudo chmod +x /opt/petshop/stop.sh
 ### 第13步：配置防火墙
 
 ```bash
-# 如果使用 ufw
+# 安装 ufw（如果没有）
+sudo apt install -y ufw
+
+# 配置防火墙规则
 sudo ufw allow 22/tcp   # SSH
 sudo ufw allow 80/tcp   # HTTP
 sudo ufw allow 443/tcp  # HTTPS（如果需要）
-sudo ufw enable
+
+# 启用防火墙
+sudo ufw --force enable
 
 # 查看状态
 sudo ufw status
@@ -311,7 +414,7 @@ sleep 10
 # 查看日志
 tail -f logs/app.log
 
-# 按 Ctrl+C 退出日志查看
+# 按 Ctrl+C 退出日志查看（应用不会停止）
 ```
 
 ### 第15步：验证部署
@@ -321,7 +424,7 @@ tail -f logs/app.log
 ps aux | grep pet-shop-backend
 
 # 检查端口
-sudo netstat -tlnp | grep :80
+sudo ss -tlnp | grep :80
 
 # 测试前端
 curl -I http://localhost/
@@ -329,11 +432,11 @@ curl -I http://localhost/
 # 测试后端
 curl http://localhost/api/v1/auth/login
 
-# 查看应用日志
-tail -f /opt/petshop/logs/app.log
+# 查看应用日志（最近 50 行）
+tail -50 /opt/petshop/logs/app.log
 ```
 
-### 第16步：（可选）配置开机自启
+### 第16步：配置开机自启
 
 ```bash
 # 创建 systemd 服务
@@ -416,10 +519,13 @@ sudo docker exec -it petshop-mysql mysql -u petshop -p
 tail -100 /opt/petshop/logs/app.log
 
 # 检查端口占用
-sudo netstat -tlnp | grep :80
+sudo ss -tlnp | grep :80
 
 # 检查 Java 版本
 java -version
+
+# 检查文件权限
+ls -la /opt/petshop/
 ```
 
 ### 问题2：无法连接数据库
@@ -446,6 +552,9 @@ curl -I http://localhost/
 
 # 检查防火墙
 sudo ufw status
+
+# 检查端口监听
+sudo ss -tlnp | grep :80
 ```
 
 ### 问题4：图片上传后无法显示
@@ -459,6 +568,52 @@ sudo chmod -R 755 /opt/petshop/uploads
 
 # 查看应用日志中的文件路径
 grep "uploads/images" /opt/petshop/logs/app.log
+```
+
+### 问题5：Maven 下载依赖很慢
+
+```bash
+# 检查 Maven 配置
+cat ~/.m2/settings.xml
+
+# 重新配置阿里云镜像
+mkdir -p ~/.m2
+tee ~/.m2/settings.xml > /dev/null << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+          http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <mirrorOf>*</mirrorOf>
+      <name>Aliyun Maven</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>
+EOF
+```
+
+### 问题6：npm/pnpm 安装依赖失败
+
+```bash
+# 检查 npm 镜像配置
+npm config get registry
+
+# 重新配置淘宝镜像
+npm config set registry https://registry.npmmirror.com
+
+# 检查 pnpm 镜像配置
+pnpm config get registry
+
+# 重新配置
+pnpm config set registry https://registry.npmmirror.com
+
+# 清除缓存重试
+pnpm store prune
+pnpm install
 ```
 
 ---
@@ -556,3 +711,102 @@ sudo tar -czf uploads_backup_$(date +%Y%m%d).tar.gz /opt/petshop/uploads/
 1. 应用日志：`/opt/petshop/logs/app.log`
 2. MySQL 日志：`sudo docker logs petshop-mysql`
 3. 系统日志：`sudo journalctl -xe`
+
+---
+
+## 📚 附录：常用软件包管理
+
+### Ubuntu 软件包管理
+
+```bash
+# 搜索软件包
+apt search docker
+
+# 查看软件包信息
+apt show docker.io
+
+# 安装软件包
+sudo apt install docker.io
+
+# 卸载软件包
+sudo apt remove docker.io
+
+# 更新软件包列表
+sudo apt update
+
+# 升级已安装的软件包
+sudo apt upgrade
+```
+
+### Snap 软件包管理
+
+```bash
+# 搜索软件包
+snap find docker
+
+# 查看软件包信息
+snap info docker
+
+# 安装软件包
+sudo snap install docker
+
+# 列出已安装的 snap
+snap list
+
+# 卸载软件包
+sudo snap remove docker
+```
+
+### Docker 常用命令
+
+```bash
+# 查看运行中的容器
+docker ps
+
+# 查看所有容器（包括停止的）
+docker ps -a
+
+# 查看容器日志
+docker logs petshop-mysql
+
+# 进入容器
+docker exec -it petshop-mysql bash
+
+# 停止容器
+docker stop petshop-mysql
+
+# 启动容器
+docker start petshop-mysql
+
+# 重启容器
+docker restart petshop-mysql
+
+# 删除容器
+docker rm petshop-mysql
+
+# 查看镜像
+docker images
+
+# 删除镜像
+docker rmi mysql:8.0
+
+# 查看 Docker 系统信息
+docker system info
+
+# 清理未使用的资源
+docker system prune -a
+```
+
+---
+
+## 💡 提示
+
+- **首次部署**：建议按照文档一步步操作，不要跳过步骤
+- **密码保存**：务必保存好生成的密码，丢失后无法恢复
+- **日志查看**：遇到问题先查看日志，90%的问题都能从日志中找到答案
+- **定期备份**：建议定期备份数据库和上传的文件
+- **更新系统**：定期运行 `sudo apt update && sudo apt upgrade` 保持系统更新
+
+---
+
+**祝你部署顺利！** 🎉
