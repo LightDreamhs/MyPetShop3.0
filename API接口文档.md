@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | 宠物店后台管理系统 (Pet Shop Admin System) |
-| 版本 | v1.1.0 |
+| 版本 | v1.2.0 |
 | 基础路径 | `/api/v1` |
 | 协议 | HTTPS |
 | 数据格式 | JSON |
@@ -64,6 +64,7 @@
 | 1001 | 参数错误 | 请求参数校验失败 |
 | 1002 | 未登录 | token缺失或无效 |
 | 1003 | token过期 | 需要重新登录 |
+| 1005 | 权限不足 | 无权限访问该资源 |
 | 2001 | 用户不存在 | 登录时用户不存在 |
 | 2002 | 密码错误 | 登录密码错误 |
 | 3001 | 商品不存在 | 操作的商品不存在 |
@@ -103,7 +104,9 @@ interface User {
   username: string;        // 用户名
   nickname: string;        // 显示名称
   avatar?: string;         // 头像URL
+  role: 'ADMIN' | 'STAFF'; // 角色（管理员/普通员工）
   createdAt: string;       // 创建时间 ISO 8601
+  updatedAt?: string;      // 更新时间 ISO 8601
 }
 ```
 
@@ -112,7 +115,7 @@ interface User {
 interface Product {
   id: number;              // 商品ID
   name: string;            // 商品名称
-  price: number;           // 价格（单位：分）
+  price: number | null;    // 价格（单位：分），非管理员返回 null
   stock: number;           // 库存数量
   imageUrl: string;        // 商品图片URL
   description?: string;    // 商品描述
@@ -197,6 +200,7 @@ interface Transaction {
       "username": "admin",
       "nickname": "管理员",
       "avatar": "https://example.com/avatar.jpg",
+      "role": "ADMIN",
       "createdAt": "2024-01-01T00:00:00Z"
     },
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -224,6 +228,7 @@ Authorization: Bearer <access_token>
     "username": "admin",
     "nickname": "管理员",
     "avatar": "https://example.com/avatar.jpg",
+    "role": "ADMIN",
     "createdAt": "2024-01-01T00:00:00Z"
   }
 }
@@ -260,6 +265,8 @@ Authorization: Bearer <access_token>
 Authorization: Bearer <access_token>
 ```
 
+**权限说明：** 仅管理员可访问
+
 **请求参数：**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -279,6 +286,7 @@ Authorization: Bearer <access_token>
         "username": "admin",
         "nickname": "管理员",
         "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
+        "role": "ADMIN",
         "createdAt": "2024-01-01T00:00:00Z",
         "updatedAt": "2024-01-01T00:00:00Z"
       }
@@ -299,6 +307,8 @@ Authorization: Bearer <access_token>
 Authorization: Bearer <access_token>
 ```
 
+**权限说明：** 普通员工只能查看自己的信息
+
 **路径参数：**
 | 参数 | 类型 | 说明 |
 |------|------|------|
@@ -314,6 +324,7 @@ Authorization: Bearer <access_token>
     "username": "admin",
     "nickname": "管理员",
     "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
+    "role": "ADMIN",
     "createdAt": "2024-01-01T00:00:00Z",
     "updatedAt": "2024-01-01T00:00:00Z"
   }
@@ -330,12 +341,15 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
+**权限说明：** 仅管理员可访问
+
 **请求参数：**
 ```json
 {
   "username": "string",      // 用户名（必填）
   "nickname": "string",      // 显示名称（必填）
-  "avatar": "string"         // 头像URL（可选）
+  "avatar": "string",        // 头像URL（可选）
+  "role": "ADMIN" | "STAFF"  // 角色（可选，默认 STAFF）
 }
 ```
 
@@ -353,6 +367,7 @@ Content-Type: application/json
     "username": "newuser",
     "nickname": "新用户",
     "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=newuser",
+    "role": "STAFF",
     "createdAt": "2024-01-24T00:00:00Z",
     "updatedAt": "2024-01-24T00:00:00Z"
   }
@@ -369,6 +384,11 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
+**权限说明：**
+- 普通员工只能修改自己的信息
+- 普通员工不能修改角色
+- 普通员工修改时 username 可选（为空则保持原值）
+
 **路径参数：**
 | 参数 | 类型 | 说明 |
 |------|------|------|
@@ -377,15 +397,17 @@ Content-Type: application/json
 **请求参数：**
 ```json
 {
-  "username": "string",      // 用户名（必填）
+  "username": "string",      // 用户名（可选，仅管理员可修改）
   "nickname": "string",      // 显示名称（必填）
-  "avatar": "string"         // 头像URL（可选）
+  "avatar": "string",        // 头像URL（可选）
+  "role": "ADMIN" | "STAFF"  // 角色（可选，仅管理员可修改）
 }
 ```
 
 **说明：**
 - 用户名必须唯一
 - 密码不通过此接口修改
+- 支持部分更新：null 字段保持原值不变
 
 **响应示例：**
 ```json
@@ -397,6 +419,7 @@ Content-Type: application/json
     "username": "newuser",
     "nickname": "更新后的名称",
     "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=newuser",
+    "role": "STAFF",
     "createdAt": "2024-01-24T00:00:00Z",
     "updatedAt": "2024-01-24T01:00:00Z"
   }
@@ -411,6 +434,8 @@ Content-Type: application/json
 ```
 Authorization: Bearer <access_token>
 ```
+
+**权限说明：** 仅管理员可访问
 
 **路径参数：**
 | 参数 | 类型 | 说明 |
@@ -438,6 +463,8 @@ Authorization: Bearer <access_token>
 ```
 Authorization: Bearer <access_token>
 ```
+
+**权限说明：** 所有用户可访问，非管理员返回时 price 字段为 null
 
 **Query参数：**
 ```
@@ -480,6 +507,8 @@ search: string        // 搜索关键词（商品名称，可选）
 Authorization: Bearer <access_token>
 ```
 
+**权限说明：** 所有用户可访问，非管理员返回时 price 字段为 null
+
 **路径参数：**
 ```
 id: number    // 商品ID
@@ -511,6 +540,8 @@ id: number    // 商品ID
 ```
 Authorization: Bearer <access_token>
 ```
+
+**权限说明：** 仅管理员可访问
 
 **请求参数：**
 ```json
@@ -549,6 +580,8 @@ Authorization: Bearer <access_token>
 ```
 Authorization: Bearer <access_token>
 ```
+
+**权限说明：** 仅管理员可访问
 
 **路径参数：**
 ```
@@ -593,6 +626,8 @@ id: number    // 商品ID
 Authorization: Bearer <access_token>
 ```
 
+**权限说明：** 所有用户可访问
+
 **路径参数：**
 ```
 id: number    // 商品ID
@@ -625,6 +660,8 @@ id: number    // 商品ID
 ```
 Authorization: Bearer <access_token>
 ```
+
+**权限说明：** 仅管理员可访问
 
 **路径参数：**
 ```
@@ -1379,10 +1416,20 @@ file: File        // 图片文件（支持jpg、jpeg、png，最大5MB）
 
 ---
 
-**文档版本：** v1.1.0
-**最后更新：** 2025-01-24
+**文档版本：** v1.2.0
+**最后更新：** 2025-01-31
 
 ## 📋 更新日志
+
+### v1.2.0 (2025-01-31)
+- 🔒 **权限系统升级**：引入基于角色的访问控制（RBAC）
+  - 新增用户角色：ADMIN（管理员）、STAFF（普通员工）
+  - 管理员可管理所有用户，普通员工只能查看/修改自己的信息
+  - 库存管理：非管理员无法看到进价（price 返回 null）
+  - 商品管理：仅管理员可新增/编辑/删除商品
+- ✨ **个人资料编辑**：所有用户可编辑自己的头像和昵称
+- 🐛 **Bug 修复**：修复更新个人资料时的验证错误
+- 📝 更新数据模型和接口权限说明
 
 ### v1.1.0 (2025-01-24)
 - ✨ 新增用户管理模块（用户列表、创建、更新、删除）

@@ -15,6 +15,7 @@ CREATE TABLE `users` (
   `password` VARCHAR(255) NOT NULL COMMENT '密码（加密）',
   `nickname` VARCHAR(100) NOT NULL COMMENT '显示名称',
   `avatar` VARCHAR(500) DEFAULT NULL COMMENT '头像URL',
+  `role` ENUM('ADMIN', 'STAFF') NOT NULL DEFAULT 'STAFF' COMMENT '角色（ADMIN管理员/STAFF普通员工）',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -104,8 +105,8 @@ CREATE TABLE `transactions` (
 -- ============================================
 
 -- 插入默认管理员用户
-INSERT INTO `users` (`username`, `password`, `nickname`, `avatar`) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '管理员', 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin');
+INSERT INTO `users` (`username`, `password`, `nickname`, `avatar`, `role`) VALUES
+('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '管理员', 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin', 'ADMIN');
 -- 密码是: admin123
 
 -- 插入示例商品数据
