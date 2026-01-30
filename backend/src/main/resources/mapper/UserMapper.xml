@@ -9,24 +9,25 @@
         <result column="password" property="password"/>
         <result column="nickname" property="nickname"/>
         <result column="avatar" property="avatar"/>
+        <result column="role" property="role"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
     <select id="findByUsername" resultMap="BaseResultMap">
-        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        SELECT id, username, password, nickname, avatar, role, created_at, updated_at
         FROM users
         WHERE username = #{username}
     </select>
 
     <select id="findById" resultMap="BaseResultMap">
-        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        SELECT id, username, password, nickname, avatar, role, created_at, updated_at
         FROM users
         WHERE id = #{id}
     </select>
 
     <select id="findByPage" resultMap="BaseResultMap">
-        SELECT id, username, password, nickname, avatar, created_at, updated_at
+        SELECT id, username, password, nickname, avatar, role, created_at, updated_at
         FROM users
         <where>
             <if test="search != null and search != ''">
@@ -50,8 +51,8 @@
     </select>
 
     <insert id="insert" parameterType="com.petshop.backend.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (username, password, nickname, avatar)
-        VALUES (#{username}, #{password}, #{nickname}, #{avatar})
+        INSERT INTO users (username, password, nickname, avatar, role)
+        VALUES (#{username}, #{password}, #{nickname}, #{avatar}, #{role})
     </insert>
 
     <update id="update" parameterType="com.petshop.backend.entity.User">
@@ -61,6 +62,7 @@
             <if test="password != null">password = #{password},</if>
             <if test="nickname != null">nickname = #{nickname},</if>
             <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="role != null">role = #{role},</if>
         </set>
         WHERE id = #{id}
     </update>

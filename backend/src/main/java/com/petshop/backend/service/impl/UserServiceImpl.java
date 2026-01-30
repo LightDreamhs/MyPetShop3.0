@@ -2,6 +2,7 @@ package com.petshop.backend.service.impl;
 
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.entity.User;
+import com.petshop.backend.enums.Role;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.UserMapper;
 import com.petshop.backend.service.UserService;
@@ -19,6 +20,15 @@ public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
 
+    /**
+     * 设置默认角色，向后兼容旧数据
+     */
+    private void setDefaultRoleIfNeeded(User user) {
+        if (user.getRole() == null) {
+            user.setRole(Role.STAFF);
+        }
+    }
+
     @Override
     public PageResult<User> findByPage(Integer page, Integer pageSize, String search) {
         // 计算偏移量
@@ -28,8 +38,11 @@ public class UserServiceImpl implements UserService {
         List<User> list = userMapper.findByPage(offset, pageSize, search);
         Long total = userMapper.countByCondition(search);
 
-        // 清除密码字段
-        list.forEach(user -> user.setPassword(null));
+        // 清除密码字段，并设置默认角色（向后兼容）
+        list.forEach(user -> {
+            user.setPassword(null);
+            setDefaultRoleIfNeeded(user);
+        });
 
         return new PageResult<>(list, total, page, pageSize);
     }
@@ -41,6 +54,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(2001, "用户不存在");
         }
         user.setPassword(null);
+        setDefaultRoleIfNeeded(user);
         return user;
     }
 
@@ -55,6 +69,11 @@ public class UserServiceImpl implements UserService {
         // 使用默认密码：123456（BCrypt加密后的值，与admin初始密码相同）
         user.setPassword("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi");
 
+        // 设置默认角色为STAFF
+        if (user.getRole() == null) {
+            user.setRole(Role.STAFF);
+        }
+
         userMapper.insert(user);
         user.setPassword(null);
         return user;
@@ -68,17 +87,36 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(2001, "用户不存在");
         }
 
-        // 如果修改了用户名，检查新用户名是否已被占用
-        if (!existingUser.getUsername().equals(user.getUsername())) {
+        // 部分更新：如果字段为 null，保持原值不变
+        // 用户名：如果提供了新用户名，检查是否已被占用
+        if (user.getUsername() != null && !user.getUsername().equals(existingUser.getUsername())) {
             User duplicateUser = userMapper.findByUsername(user.getUsername());
             if (duplicateUser != null) {
                 throw new BusinessException(2002, "用户名已存在");
             }
+        } else {
+            user.setUsername(existingUser.getUsername());
+        }
+
+        // 昵称：如果为空，保持原值
+        if (user.getNickname() == null || user.getNickname().trim().isEmpty()) {
+            user.setNickname(existingUser.getNickname());
+        }
+
+        // 头像：如果为空，保持原值
+        if (user.getAvatar() == null) {
+            user.setAvatar(existingUser.getAvatar());
+        }
+
+        // 角色：如果为空，保持原值
+        if (user.getRole() == null) {
+            user.setRole(existingUser.getRole());
         }
 
         user.setId(id);
         // 密码不通过此接口修改，保持原密码不变
         user.setPassword(existingUser.getPassword());
+
         userMapper.update(user);
         user.setPassword(null);
         return user;

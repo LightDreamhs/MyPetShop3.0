@@ -1,6 +1,7 @@
 package com.petshop.backend.config;
 
 import com.petshop.backend.interceptor.JwtInterceptor;
+import com.petshop.backend.interceptor.RoleInterceptor;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ import java.nio.file.Paths;
 public class WebConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
+    private final RoleInterceptor roleInterceptor;
 
     @Value("${file.upload-dir:uploads/images/}")
     private String uploadDir;
@@ -52,7 +54,9 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // JWT认证拦截器，优先级最高（order=1）
         registry.addInterceptor(jwtInterceptor)
+                .order(1)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/auth/login",
@@ -60,6 +64,21 @@ public class WebConfig implements WebMvcConfigurer {
                         "/upload/**",
                         "/uploads/images/**",
                         "/api/v1/uploads/images/**",  // 排除包含 context-path 的静态资源路径
+                        "/error",
+                        "/swagger-resources/**",
+                        "/v3/api-docs/**"
+                );
+
+        // 角色权限拦截器（order=2），在JWT认证之后执行
+        registry.addInterceptor(roleInterceptor)
+                .order(2)
+                .addPathPatterns("/**")
+                .excludePathPatterns(
+                        "/auth/login",
+                        "/auth/register",
+                        "/upload/**",
+                        "/uploads/images/**",
+                        "/api/v1/uploads/images/**",
                         "/error",
                         "/swagger-resources/**",
                         "/v3/api-docs/**"
