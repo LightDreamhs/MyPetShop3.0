@@ -83,6 +83,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isLoading: false,
           });
+          // 强制跳转到登录页
+          window.location.href = '/login';
         }
       },
 
