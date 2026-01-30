@@ -392,12 +392,18 @@ build_backend() {
 start_services() {
     print_info "启动 Docker 服务..."
 
-    # 停止旧容器
-    docker compose down &> /dev/null || true
+    # 只停止和删除前后端容器，保留 MySQL
+    print_info "停止旧的前后端容器..."
+    docker compose stop backend frontend 2>/dev/null || true
+    docker compose rm -f backend frontend 2>/dev/null || true
 
-    # 构建并启动
+    # 删除旧镜像
+    print_info "删除旧镜像..."
+    docker rmi deployment-backend deployment-frontend 2>/dev/null || true
+
+    # 构建并启动（MySQL 会自动保持运行）
     print_info "正在构建镜像并启动容器..."
-    docker compose up -d --build
+    docker compose up -d --build backend frontend
 
     print_info "等待服务启动..."
     sleep 10

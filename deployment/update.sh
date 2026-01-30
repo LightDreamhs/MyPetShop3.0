@@ -194,12 +194,16 @@ log_info "=================================="
 if [ "$BACKEND_NEED_UPDATE" = true ] || [ "$FRONTEND_NEED_UPDATE" = true ] || [ "$NEED_UPDATE" = true ]; then
 
     if [ "$BACKEND_NEED_UPDATE" = true ]; then
+        log_info "删除旧后端镜像..."
+        docker rmi deployment-backend 2>/dev/null || true
         log_info "重新构建后端镜像..."
         docker-compose build --no-cache backend
         log_success "✓ 后端镜像构建完成"
     fi
 
     if [ "$FRONTEND_NEED_UPDATE" = true ]; then
+        log_info "删除旧前端镜像..."
+        docker rmi deployment-frontend 2>/dev/null || true
         log_info "重新构建前端镜像..."
         docker-compose build --no-cache frontend
         log_success "✓ 前端镜像构建完成"
