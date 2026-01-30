@@ -16,12 +16,19 @@ export interface User {
   username: string;
   nickname: string;
   avatar?: string;
+  role: 'ADMIN' | 'STAFF';
   createdAt: string;
   updatedAt?: string;
 }
 
 export interface UserFormData {
-  username: string;
+  username?: string;
+  nickname: string;
+  avatar?: string;
+  role?: 'ADMIN' | 'STAFF';
+}
+
+export interface ProfileFormData {
   nickname: string;
   avatar?: string;
 }
@@ -35,7 +42,7 @@ export interface LoginResponse {
 export interface Product {
   id: number;
   name: string;
-  price: number;
+  price: number | null;
   stock: number;
   imageUrl: string;
   description?: string;

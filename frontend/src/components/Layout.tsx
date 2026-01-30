@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, Users as UsersIcon, Coins, LogOut, UserRound } from 'lucide-react';
+import { Package, Users as UsersIcon, Coins, LogOut, UserRound, Edit } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from './ui/Button';
+import { ProfileEditDialog } from './ProfileEditDialog';
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  adminOnly?: boolean;
+}
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,7 +19,8 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAdmin, getCurrentUser } = useAuthStore();
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const path = location.pathname;
     if (path === '/' || path.startsWith('/inventory')) return 'inventory';
@@ -44,12 +53,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const navItems = [
+  const handleProfileUpdateSuccess = async () => {
+    try {
+      await getCurrentUser();
+    } catch (error) {
+      // Error handled by authStore
+    }
+  };
+
+  const navItems: NavItem[] = [
     { id: 'inventory', label: '库存管理', icon: Package },
     { id: 'customers', label: '客户信息', icon: UsersIcon },
     { id: 'accounting', label: '财务记账', icon: Coins },
-    { id: 'users', label: '店员账号', icon: UserRound },
+    { id: 'users', label: '店员账号', icon: UserRound, adminOnly: true },
   ];
+
+  // 过滤导航菜单，只显示用户有权限访问的菜单项
+  const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin());
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -70,7 +90,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* 导航菜单 */}
         <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -92,7 +112,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* 用户信息 */}
         <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center justify-between mb-3">
+          <div
+            className="flex items-center justify-between mb-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group"
+            onClick={() => setIsProfileEditOpen(true)}
+            title="点击编辑个人资料"
+          >
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                 {user?.avatar ? (
@@ -111,11 +135,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {user?.nickname || '用户'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {user?.username || ''}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-500 truncate">
+                    {user?.username || ''}
+                  </p>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    user?.role === 'ADMIN'
+                      ? 'bg-purple-100 text-purple-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {user?.role === 'ADMIN' ? '管理员' : '普通员工'}
+                  </span>
+                </div>
               </div>
             </div>
+            <Edit
+              size={16}
+              className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            />
           </div>
           <Button
             variant="ghost"
@@ -133,6 +170,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 overflow-auto">
         {children}
       </div>
+
+      {/* 个人资料编辑对话框 */}
+      {user && (
+        <ProfileEditDialog
+          isOpen={isProfileEditOpen}
+          onClose={() => setIsProfileEditOpen(false)}
+          user={user}
+          onSuccess={handleProfileUpdateSuccess}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../stores/userStore';
+import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -8,6 +10,8 @@ import { Search, Plus, Edit, Trash2, User as UserIcon } from 'lucide-react';
 import type { User, UserFormData } from '../types';
 
 export const UsersPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuthStore();
   const {
     users,
     total,
@@ -31,10 +35,20 @@ export const UsersPage: React.FC = () => {
     username: '',
     nickname: '',
     avatar: '',
+    role: 'STAFF',
   });
 
+  // 权限检查：非管理员无法访问
   useEffect(() => {
-    fetchUsers({ page: 1, pageSize: 10, search: searchTerm });
+    if (!isAdmin()) {
+      navigate('/');
+    }
+  }, [isAdmin, navigate]);
+
+  useEffect(() => {
+    if (isAdmin()) {
+      fetchUsers({ page: 1, pageSize: 10, search: searchTerm });
+    }
   }, []);
 
   const handleSearch = () => {
@@ -92,6 +106,7 @@ export const UsersPage: React.FC = () => {
       username: user.username,
       nickname: user.nickname,
       avatar: user.avatar || '',
+      role: user.role,
     });
     setIsEditDialogOpen(true);
   };
@@ -101,8 +116,15 @@ export const UsersPage: React.FC = () => {
       {/* 页面标题 */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">店员账号管理</h1>
-        <p className="text-gray-500 mt-1">管理系统店员账号信息</p>
+        <p className="text-gray-500 mt-2">管理系统店员账号信息</p>
       </div>
+
+      {/* 权限提示 */}
+      {!isAdmin() && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-800">您没有访问此页面的权限，请以管理员身份登录。</p>
+        </div>
+      )}
 
       {/* 搜索和操作栏 */}
       <Card className="mb-6">
@@ -162,6 +184,7 @@ export const UsersPage: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店员信息</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">角色</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                   </tr>
                 </thead>
@@ -194,6 +217,15 @@ export const UsersPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{user.username}</div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === 'ADMIN'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {user.role === 'ADMIN' ? '管理员' : '普通员工'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => openEditDialog(user)}
@@ -201,12 +233,15 @@ export const UsersPage: React.FC = () => {
                         >
                           <Edit size={16} />
                         </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {/* admin账号不能删除，且只有ADMIN角色的账号可以删除其他账号 */}
+                        {user.username !== 'admin' && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -256,6 +291,18 @@ export const UsersPage: React.FC = () => {
               value={formData.avatar}
               onChange={(url) => setFormData({ ...formData, avatar: url })}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.role || 'STAFF'}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'ADMIN' | 'STAFF' })}
+              required
+            >
+              <option value="STAFF">普通员工</option>
+              <option value="ADMIN">管理员</option>
+            </select>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
@@ -322,6 +369,22 @@ export const UsersPage: React.FC = () => {
               value={formData.avatar}
               onChange={(url) => setFormData({ ...formData, avatar: url })}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.role || 'STAFF'}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'ADMIN' | 'STAFF' })}
+              required
+              disabled={selectedUser?.username === 'admin'}
+            >
+              <option value="STAFF">普通员工</option>
+              <option value="ADMIN">管理员</option>
+            </select>
+            {selectedUser?.username === 'admin' && (
+              <p className="text-xs text-gray-500 mt-1">admin账号的角色不能修改</p>
+            )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end space-x-3 pt-4">

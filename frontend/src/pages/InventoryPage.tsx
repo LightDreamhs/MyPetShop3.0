@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProductStore } from '../stores/productStore';
+import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
@@ -9,6 +10,7 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import type { Product, ProductFormData } from '../types';
 
 export const InventoryPage: React.FC = () => {
+  const { isAdmin } = useAuthStore();
   const {
     products,
     total,
@@ -230,13 +232,13 @@ export const InventoryPage: React.FC = () => {
     setSelectedProduct(product);
     setFormData({
       name: product.name,
-      price: product.price,
+      price: product.price ?? 0,
       stock: product.stock,
       imageUrl: product.imageUrl,
       description: product.description || '',
     });
     // 设置价格输入框的显示值
-    setPriceInputValue((product.price / 100).toFixed(2));
+    setPriceInputValue(((product.price ?? 0) / 100).toFixed(2));
     // 设置库存输入框的显示值
     setStockInputValue(product.stock.toString());
     setIsEditDialogOpen(true);
@@ -287,10 +289,12 @@ export const InventoryPage: React.FC = () => {
               </div>
               <Button onClick={handleSearch}>搜索</Button>
             </div>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <Plus size={20} className="mr-2" />
-              新增商品
-            </Button>
+            {isAdmin() && (
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus size={20} className="mr-2" />
+                新增商品
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -326,7 +330,9 @@ export const InventoryPage: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">商品</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进价</th>
+                    {isAdmin() && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进价</th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -349,9 +355,13 @@ export const InventoryPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">¥{(product.price / 100).toFixed(2)}</div>
-                      </td>
+                      {isAdmin() && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {product.price !== null ? `¥${(product.price / 100).toFixed(2)}` : '-'}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           {/* 减号按钮 */}
@@ -401,18 +411,22 @@ export const InventoryPage: React.FC = () => {
                         >
                           修改库存
                         </button>
-                        <button
-                          onClick={() => openEditDialog(product)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {isAdmin() && (
+                          <>
+                            <button
+                              onClick={() => openEditDialog(product)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-3"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(product.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

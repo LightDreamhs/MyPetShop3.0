@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '../types';
 import { authApi } from '../services/api';
 
@@ -15,11 +15,13 @@ interface AuthState {
   logout: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
   clearError: () => void;
+  isAdmin: () => boolean;
+  hasRole: (role: 'ADMIN' | 'STAFF') => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -89,9 +91,20 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => set({ error: null }),
+
+      isAdmin: () => {
+        const state = get();
+        return state.user?.role === 'ADMIN';
+      },
+
+      hasRole: (role: 'ADMIN' | 'STAFF') => {
+        const state = get();
+        return state.user?.role === role;
+      },
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,

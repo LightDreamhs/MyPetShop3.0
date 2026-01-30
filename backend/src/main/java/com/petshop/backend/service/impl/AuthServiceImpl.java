@@ -3,6 +3,7 @@ package com.petshop.backend.service.impl;
 import com.petshop.backend.config.JwtConfig;
 import com.petshop.backend.dto.LoginResponse;
 import com.petshop.backend.entity.User;
+import com.petshop.backend.enums.Role;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.UserMapper;
 import com.petshop.backend.service.AuthService;
@@ -29,11 +30,16 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(2001, "用户不存在");
         }
 
+        // 向后兼容：如果角色为null，默认设置为STAFF
+        if (user.getRole() == null) {
+            user.setRole(Role.STAFF);
+        }
+
         // 移除密码后返回
         user.setPassword(null);
 
-        // 生成token
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        // 生成token，包含角色信息
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
 
         return new LoginResponse(user, token, Math.toIntExact(jwtConfig.getExpiration()));
     }

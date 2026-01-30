@@ -1,5 +1,6 @@
 package com.petshop.backend.entity;
 
+import com.petshop.backend.enums.Role;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -34,4 +35,9 @@ public class User extends BaseEntity {
      * 头像URL
      */
     private String avatar;
+
+    /**
+     * 用户角色
+     */
+    private Role role;
 }
