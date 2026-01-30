@@ -304,11 +304,6 @@ export const UsersPage: React.FC = () => {
               <option value="ADMIN">管理员</option>
             </select>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
-              <strong>提示：</strong>新创建的店员账号默认密码为 <code className="bg-blue-100 px-2 py-1 rounded">123456</code>
-            </p>
-          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end space-x-3 pt-4">
             <Button
