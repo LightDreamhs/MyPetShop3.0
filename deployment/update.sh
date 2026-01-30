@@ -243,20 +243,30 @@ log_info "=================================="
 log_info "步骤 6/7: 验证数据持久化"
 log_info "=================================="
 
-# 检查MySQL数据卷
-if docker volume ls | grep -q petshop_mysql-data; then
-    log_success "✓ MySQL数据卷存在"
+# 检查MySQL数据卷（使用docker-compose自动获取正确的卷名）
+MYSQL_VOLUME_NAME=$(docker-compose config --volumes | grep mysql | head -1)
+if [ -z "$MYSQL_VOLUME_NAME" ]; then
+    MYSQL_VOLUME_NAME="deployment_mysql-data"
+fi
+
+if docker volume ls | grep -q ${MYSQL_VOLUME_NAME}; then
+    log_success "✓ MySQL数据卷存在 ($MYSQL_VOLUME_NAME)"
 
     # 检查数据卷是否有数据
-    MYSQL_DATA_SIZE=$(docker volume inspect petshop_mysql-data --format='{{.Usage}}')
+    MYSQL_DATA_SIZE=$(docker volume inspect ${MYSQL_VOLUME_NAME} --format='{{.Usage}}' 2>/dev/null || echo "未知")
     log_info "MySQL数据大小: $MYSQL_DATA_SIZE"
 else
     log_warning "✗ MySQL数据卷不存在（首次部署）"
 fi
 
 # 检查上传文件数据卷
-if docker volume ls | grep -q petshop_upload-data; then
-    log_success "✓ 上传文件数据卷存在"
+UPLOAD_VOLUME_NAME=$(docker-compose config --volumes | grep upload | head -1)
+if [ -z "$UPLOAD_VOLUME_NAME" ]; then
+    UPLOAD_VOLUME_NAME="deployment_upload-data"
+fi
+
+if docker volume ls | grep -q ${UPLOAD_VOLUME_NAME}; then
+    log_success "✓ 上传文件数据卷存在 ($UPLOAD_VOLUME_NAME)"
 
     # 检查是否有上传文件
     UPLOAD_COUNT=$(docker exec petshop-backend ls -1 /app/uploads/images/ 2>/dev/null | wc -l)
