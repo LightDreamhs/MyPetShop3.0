@@ -55,29 +55,31 @@ export const Dialog: React.FC<DialogProps> = ({
 
   return (
     <>
-      {/* 轻微变暗的遮罩层 */}
+      {/* 遮罩层 */}
       <div
-        className="fixed inset-0 z-40 bg-black bg-opacity-10 transition-opacity"
+        className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:bg-opacity-10 transition-opacity"
         aria-hidden="true"
+        onClick={onClose}
       />
 
       {/* 对话框 */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-4 pointer-events-none">
         <div
           ref={dialogRef}
-          className={`bg-white rounded-lg shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto pointer-events-auto transform transition-all`}
+          className={`bg-white rounded-none lg:rounded-lg shadow-2xl w-full h-full lg:w-auto lg:h-auto lg:max-h-[90vh] overflow-y-auto pointer-events-auto transform transition-all ${sizeClasses[size]}`}
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between px-4 py-4 lg:px-6 lg:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+            <h2 className="text-lg lg:text-xl font-semibold text-gray-900">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded active:scale-95 lg:p-1"
               type="button"
+              aria-label="关闭"
             >
               <X size={24} />
             </button>
           </div>
-          <div className="px-6 py-4">
+          <div className="px-4 py-4 lg:px-6 lg:py-4">
             {children}
           </div>
         </div>
