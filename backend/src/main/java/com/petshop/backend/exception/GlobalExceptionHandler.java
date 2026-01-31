@@ -1,6 +1,7 @@
 package com.petshop.backend.exception;
 
 import com.petshop.backend.dto.Result;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
@@ -23,8 +24,14 @@ public class GlobalExceptionHandler {
      * 处理业务异常
      */
     @ExceptionHandler(BusinessException.class)
-    public Result<Void> handleBusinessException(BusinessException e) {
+    public Result<Void> handleBusinessException(BusinessException e, HttpServletResponse response) {
         log.error("业务异常: {}", e.getMessage());
+
+        // 如果是 token 过期或未登录，返回 401 状态码
+        if (e.getCode() == 1002 || e.getCode() == 1003) {
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        }
+
         return Result.error(e.getCode(), e.getMessage());
     }
 
