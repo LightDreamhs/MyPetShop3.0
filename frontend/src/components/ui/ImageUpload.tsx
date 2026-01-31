@@ -73,7 +73,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   return (
     <div className={`space-y-2 ${className}`}>
       {preview ? (
-        <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-300 group">
+        <div className="relative w-32 h-32 lg:w-32 lg:h-32 rounded-lg overflow-hidden border-2 border-gray-300 group">
           <img
             src={preview}
             alt="预览"
@@ -82,8 +82,9 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
           <button
             type="button"
             onClick={handleRemove}
-            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 active:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
             title="删除图片"
+            aria-label="删除图片"
           >
             <X size={16} />
           </button>
@@ -102,9 +103,10 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             htmlFor="image-upload"
             className={`
               flex flex-col items-center justify-center gap-2
-              w-32 h-32 rounded-lg border-2 border-dashed border-gray-300
+              w-32 h-32 lg:w-32 lg:h-32 rounded-lg border-2 border-dashed border-gray-300
               cursor-pointer hover:border-blue-500 hover:bg-blue-50
-              transition-colors
+              active:scale-95 active:bg-blue-100
+              transition-all
               ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
