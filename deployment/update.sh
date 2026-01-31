@@ -223,13 +223,17 @@ log_info "=================================="
 
 if [ "$BACKEND_NEED_UPDATE" = true ]; then
     log_info "重启后端容器..."
-    docker-compose up -d --force-recreate backend
+    docker-compose stop backend 2>/dev/null || true
+    docker-compose rm -f backend 2>/dev/null || true
+    docker-compose up -d backend
     log_success "✓ 后端容器已重启"
 fi
 
 if [ "$FRONTEND_NEED_UPDATE" = true ]; then
     log_info "重启前端容器..."
-    docker-compose up -d --force-recreate frontend
+    docker-compose stop frontend 2>/dev/null || true
+    docker-compose rm -f frontend 2>/dev/null || true
+    docker-compose up -d frontend
     log_success "✓ 前端容器已重启"
 fi
 
