@@ -5,9 +5,10 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
-import { Search, Plus, Edit, X, Check, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, X, Check, Trash2, Wallet, History } from 'lucide-react';
 import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
-import type { Customer, CustomerFormData } from '../types';
+import type { Customer, CustomerFormData, BalanceTransaction } from '../types';
+import { customerApi } from '../services/api';
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +32,21 @@ export const CustomersPage: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 余额相关状态
+  const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+  const [balanceDialogType, setBalanceDialogType] = useState<'recharge' | 'deduct'>('recharge');
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceDescription, setBalanceDescription] = useState('');
+  // 保存当前操作的客户快照，避免 selectedCustomer 被清空导致问题
+  const [balanceOperationCustomer, setBalanceOperationCustomer] = useState<Customer | null>(null);
+  const [isBalanceHistoryOpen, setIsBalanceHistoryOpen] = useState(false);
+  const [balanceHistory, setBalanceHistory] = useState<BalanceTransaction[]>([]);
+  const [balanceHistoryPage, setBalanceHistoryPage] = useState(1);
+  const [balanceHistoryTotal, setBalanceHistoryTotal] = useState(0);
+
   const [formData, setFormData] = useState<CustomerFormData>({
     petName: '',
     ownerName: '',
@@ -47,6 +63,42 @@ export const CustomersPage: React.FC = () => {
   useEffect(() => {
     loadCustomers();
   }, [page, pageSize]);
+
+  // ESC 键处理 - 按正确顺序关闭对话框
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        // 优先关闭内层对话框
+        if (isBalanceDialogOpen) {
+          setIsBalanceDialogOpen(false);
+          setBalanceAmount('');
+          setBalanceDescription('');
+        } else if (isBalanceHistoryOpen) {
+          setIsBalanceHistoryOpen(false);
+        } else if (isDetailDialogOpen) {
+          setIsDetailDialogOpen(false);
+          setIsEditMode(false);
+          setSelectedCustomer(null);
+          resetFormData();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isBalanceDialogOpen, isBalanceHistoryOpen, isDetailDialogOpen]);
+
+  // 监听充值对话框打开状态，验证客户信息
+  useEffect(() => {
+    if (isBalanceDialogOpen) {
+      // 使用客户快照来判断，因为 selectedCustomer 可能还未更新
+      const customer = balanceOperationCustomer || selectedCustomer;
+      if (!customer) {
+        // 自动关闭对话框
+        setIsBalanceDialogOpen(false);
+      }
+    }
+  }, [isBalanceDialogOpen]); // 只监听对话框打开状态，不监听 customer 变化
 
   const loadCustomers = () => {
     const params: any = { page, pageSize };
@@ -300,13 +352,14 @@ export const CustomersPage: React.FC = () => {
         title="新增客户"
         size="lg"
       >
-        <form onSubmit={handleAddCustomer} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="max-h-[70vh] overflow-y-auto px-1">
+          <form onSubmit={handleAddCustomer} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">宠物名称 *</label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.petName}
                 onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
                 required
@@ -316,7 +369,7 @@ export const CustomersPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">主人姓名 *</label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.ownerName}
                 onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
                 required
@@ -328,20 +381,20 @@ export const CustomersPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">电话号码 *</label>
             <input
               type="tel"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="11位手机号"
-              pattern="[0-9]{11}"
+              pattern="[0-9]{11]"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">宠物类型</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.petType}
                 onChange={(e) => setFormData({ ...formData, petType: e.target.value })}
               >
@@ -358,20 +411,20 @@ export const CustomersPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">品种</label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.breed}
                 onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">年龄</label>
               <input
                 type="number"
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.age || ''}
                 onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
               />
@@ -379,7 +432,7 @@ export const CustomersPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">性别</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
               >
@@ -400,14 +453,14 @@ export const CustomersPage: React.FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">会员级别 *</label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="flex flex-wrap gap-2">
               {MEMBER_LEVELS.map((level) => (
                 <button
                   key={level.value}
                   type="button"
                   onClick={() => setFormData({ ...formData, memberLevel: level.value })}
                   className={`
-                    px-3 py-2 rounded-lg border-2 font-medium text-sm transition-all
+                    px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all
                     ${formData.memberLevel === level.value
                       ? 'border-current shadow-md scale-105'
                       : 'border-gray-300 opacity-70 hover:opacity-100'
@@ -432,7 +485,7 @@ export const CustomersPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">备注信息</label>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={3}
+              rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="请输入备注信息"
@@ -441,7 +494,7 @@ export const CustomersPage: React.FC = () => {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-2">
             <Button
               type="button"
               variant="secondary"
@@ -458,6 +511,7 @@ export const CustomersPage: React.FC = () => {
             </Button>
           </div>
         </form>
+        </div>
       </Dialog>
 
       {/* 客户详情对话框 */}
@@ -468,6 +522,9 @@ export const CustomersPage: React.FC = () => {
           setIsEditMode(false);
           setSelectedCustomer(null);
           resetFormData();
+          // 关闭所有可能打开的内层对话框
+          setIsBalanceDialogOpen(false);
+          setIsBalanceHistoryOpen(false);
         }}
         title={isEditMode ? '编辑客户' : '客户详情'}
         size="lg"
@@ -549,6 +606,76 @@ export const CustomersPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* 余额信息 */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Wallet className="text-blue-600" size={24} />
+                      <div>
+                        <p className="text-xs text-gray-600">会员余额</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          ¥{((selectedCustomer.balance || 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!selectedCustomer) {
+                            return;
+                          }
+                          // 保存客户快照，避免 selectedCustomer 被清空
+                          setBalanceOperationCustomer(selectedCustomer);
+                          setBalanceDialogType('recharge');
+                          setBalanceAmount('');
+                          setBalanceDescription('');
+                          setIsBalanceDialogOpen(true);
+                        }}
+                      >
+                        充值
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!selectedCustomer) {
+                            return;
+                          }
+                          // 保存客户快照，避免 selectedCustomer 被清空
+                          setBalanceOperationCustomer(selectedCustomer);
+                          setBalanceDialogType('deduct');
+                          setBalanceAmount('');
+                          setBalanceDescription('');
+                          setIsBalanceDialogOpen(true);
+                        }}
+                      >
+                        扣减
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={async () => {
+                          try {
+                            const response = await customerApi.getBalanceHistory(selectedCustomer.id, { page: 1, pageSize: 10 });
+                            setBalanceHistory(response.data.data.list);
+                            setBalanceHistoryTotal(response.data.data.total);
+                            setBalanceHistoryPage(1);
+                            setIsBalanceHistoryOpen(true);
+                          } catch (error) {
+                            // Error handled silently
+                          }
+                        }}
+                      >
+                        <History size={16} className="mr-1" />
+                        历史
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* 操作按钮 */}
                 <div className="flex justify-end space-x-3 pt-4 border-t">
                   <Button
@@ -558,6 +685,9 @@ export const CustomersPage: React.FC = () => {
                       setIsEditMode(false);
                       setSelectedCustomer(null);
                       resetFormData();
+                      // 关闭所有可能打开的内层对话框
+                      setIsBalanceDialogOpen(false);
+                      setIsBalanceHistoryOpen(false);
                     }}
                   >
                     关闭
@@ -581,29 +711,30 @@ export const CustomersPage: React.FC = () => {
             ) : (
               <>
                 {/* 编辑模式 */}
-                <form onSubmit={handleEditCustomer} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">宠物名称 *</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.petName}
-                        onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
-                        required
-                      />
+                <div className="max-h-[70vh] overflow-y-auto px-1">
+                  <form onSubmit={handleEditCustomer} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">宠物名称 *</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={formData.petName}
+                          onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">主人姓名 *</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={formData.ownerName}
+                          onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">主人姓名 *</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.ownerName}
-                        onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">电话号码 *</label>
@@ -681,14 +812,14 @@ export const CustomersPage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">会员级别 *</label>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {MEMBER_LEVELS.map((level) => (
                         <button
                           key={level.value}
                           type="button"
                           onClick={() => setFormData({ ...formData, memberLevel: level.value })}
                           className={`
-                            px-3 py-2 rounded-lg border-2 font-medium text-sm transition-all
+                            px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all
                             ${formData.memberLevel === level.value
                               ? 'border-current shadow-md scale-105'
                               : 'border-gray-300 opacity-70 hover:opacity-100'
@@ -737,10 +868,283 @@ export const CustomersPage: React.FC = () => {
                     </Button>
                   </div>
                 </form>
+                </div>
               </>
             )}
           </div>
         )}
+      </Dialog>
+
+      {/* 余额操作对话框 */}
+      <Dialog
+        isOpen={isBalanceDialogOpen}
+        onClose={() => {
+          setIsBalanceDialogOpen(false);
+          setBalanceAmount('');
+          setBalanceDescription('');
+          setBalanceOperationCustomer(null); // 清空客户快照
+        }}
+        title={balanceDialogType === 'recharge' ? '会员充值' : '余额扣减'}
+        size="md"
+      >
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+
+          // 验证 1：检查客户信息（优先使用快照）
+          const customer = balanceOperationCustomer || selectedCustomer;
+          if (!customer) {
+            return;
+          }
+
+          // 验证 2：检查金额
+          const amount = parseFloat(balanceAmount);
+
+          if (balanceAmount.trim() === '' || isNaN(amount) || amount <= 0) {
+            return;
+          }
+
+          const amountInCents = Math.round(amount * 100);
+
+          // 验证 3：检查余额充足性（仅扣减操作）
+          if (balanceDialogType === 'deduct') {
+            const currentBalance = customer.balance || 0;
+            if (currentBalance < amountInCents) {
+              return;
+            }
+          }
+
+          // 开始提交
+          setIsSubmitting(true);
+
+          try {
+            let response;
+            if (balanceDialogType === 'recharge') {
+              response = await customerApi.rechargeBalance(customer.id, {
+                amount: amountInCents,
+                description: balanceDescription || undefined,
+              });
+            } else {
+              response = await customerApi.deductBalance(customer.id, {
+                amount: amountInCents,
+                description: balanceDescription || undefined,
+              });
+            }
+
+            // 刷新客户信息
+            const updatedCustomer = await customerApi.getCustomer(customer.id);
+
+            // 更新客户信息（如果详情对话框仍然打开）
+            if (selectedCustomer && selectedCustomer.id === customer.id) {
+              setSelectedCustomer(updatedCustomer.data.data);
+            }
+
+            // 刷新列表
+            loadCustomers();
+
+            // 关闭对话框
+            setIsBalanceDialogOpen(false);
+            setBalanceAmount('');
+            setBalanceDescription('');
+            setBalanceOperationCustomer(null); // 清空快照
+          } catch (error: any) {
+            // 错误已经被 store 处理，或者静默失败
+          } finally {
+            setIsSubmitting(false);
+          }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              金额（元）*
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={balanceAmount}
+              onChange={(e) => setBalanceAmount(e.target.value)}
+              required
+            />
+            {balanceAmount && parseFloat(balanceAmount) <= 0 && (
+              <p className="mt-1 text-sm text-red-600">金额必须大于 0</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              说明
+            </label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+              value={balanceDescription}
+              onChange={(e) => setBalanceDescription(e.target.value)}
+              placeholder={balanceDialogType === 'recharge' ? '充值说明（选填）' : '扣减说明（选填）'}
+            />
+          </div>
+
+          {balanceDialogType === 'deduct' && (balanceOperationCustomer || selectedCustomer) && (
+            <div className="bg-blue-50 rounded-lg p-3">
+              <p className="text-sm text-gray-600">
+                当前余额: <span className="font-semibold">¥{(((balanceOperationCustomer || selectedCustomer)!.balance || 0) / 100).toFixed(2)}</span>
+              </p>
+              {balanceAmount && (
+                <p className="text-sm text-gray-600 mt-1">
+                  扣减后余额: <span className="font-semibold">¥{((((balanceOperationCustomer || selectedCustomer)!.balance || 0) - Math.round(parseFloat(balanceAmount) * 100)) / 100).toFixed(2)}</span>
+                </p>
+              )}
+              {balanceAmount && ((balanceOperationCustomer || selectedCustomer)!.balance || 0) < Math.round(parseFloat(balanceAmount) * 100) && (
+                <p className="text-red-600 font-medium mt-1">⚠️ 余额不足</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsBalanceDialogOpen(false);
+                setBalanceAmount('');
+                setBalanceDescription('');
+                setBalanceOperationCustomer(null); // 清空客户快照
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              {isSubmitting
+                ? (balanceDialogType === 'recharge' ? '充值中...' : '扣减中...')
+                : (balanceDialogType === 'recharge' ? '确认充值' : '确认扣减')
+              }
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* 余额历史对话框 */}
+      <Dialog
+        isOpen={isBalanceHistoryOpen}
+        onClose={() => {
+          setIsBalanceHistoryOpen(false);
+          setBalanceHistory([]);
+          setBalanceHistoryPage(1);
+        }}
+        title="余额变动历史"
+      >
+        <div className="space-y-4">
+          {balanceHistory.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">暂无余额变动记录</div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {balanceHistory.map((record) => (
+                <div key={record.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className={`text-2xl font-bold ${
+                          record.type === 'RECHARGE' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {record.type === 'RECHARGE' ? '+' : '-'}¥{(record.amount / 100).toFixed(2)}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          record.type === 'RECHARGE'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {record.type === 'RECHARGE' ? '充值' : '扣减'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>变动前: <span className="font-medium">¥{(record.balanceBefore / 100).toFixed(2)}</span></p>
+                        <p>变动后: <span className="font-medium">¥{(record.balanceAfter / 100).toFixed(2)}</span></p>
+                        {record.description && (
+                          <p className="text-gray-500">说明: {record.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p className="text-gray-500 mb-1">{new Date(record.createdAt).toLocaleString('zh-CN')}</p>
+                      {record.operatorName && (
+                        <p className="text-gray-600">
+                          操作人: <span className="font-medium">{record.operatorName}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {balanceHistoryTotal > 10 && (
+            <div className="flex justify-between items-center pt-4 border-t">
+              <span className="text-sm text-gray-500">
+                共 {balanceHistoryTotal} 条记录
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={balanceHistoryPage === 1}
+                  onClick={async () => {
+                    if (!selectedCustomer) return;
+                    const newPage = balanceHistoryPage - 1;
+                    try {
+                      const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
+                        page: newPage,
+                        pageSize: 10,
+                      });
+                      setBalanceHistory(response.data.data.list);
+                      setBalanceHistoryPage(newPage);
+                    } catch (error) {
+                      // Error handled silently
+                    }
+                  }}
+                >
+                  上一页
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={balanceHistoryPage * 10 >= balanceHistoryTotal}
+                  onClick={async () => {
+                    if (!selectedCustomer) return;
+                    const newPage = balanceHistoryPage + 1;
+                    try {
+                      const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
+                        page: newPage,
+                        pageSize: 10,
+                      });
+                      setBalanceHistory(response.data.data.list);
+                      setBalanceHistoryPage(newPage);
+                    } catch (error) {
+                      // Error handled silently
+                    }
+                  }}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button
+              onClick={() => {
+                setIsBalanceHistoryOpen(false);
+                setBalanceHistory([]);
+                setBalanceHistoryPage(1);
+              }}
+            >
+              关闭
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

@@ -456,7 +456,6 @@ export const AccountingPage: React.FC = () => {
           clearError();
         }}
         title="记一笔"
-        size="lg"
       >
         <form onSubmit={handleAddTransaction} className="space-y-4">
           <div>

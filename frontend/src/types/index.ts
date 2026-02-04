@@ -64,6 +64,7 @@ export interface Customer {
   ownerName: string;
   phone: string;
   memberLevel: number; // 0=非会员 1=初级 2=中级 3=高级 4=至尊
+  balance?: number; // 会员余额（单位：分）
   avatar?: string;
   petType?: string;
   breed?: string;
@@ -136,5 +137,28 @@ export interface UploadResponse {
   url: string;
   filename: string;
   size: number;
+}
+
+export interface BalanceTransaction {
+  id: number;
+  customerId: number;
+  type: 'RECHARGE' | 'DEDUCT' | 'REFUND';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description?: string;
+  operatorId?: number;
+  operatorName?: string; // 操作人名称
+  createdAt: string;
+}
+
+export interface BalanceRechargeRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface BalanceDeductRequest {
+  amount: number;
+  description?: string;
 }
 

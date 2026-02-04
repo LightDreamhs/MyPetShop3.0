@@ -13,7 +13,7 @@ export const MEMBER_LEVELS = [
   },
   {
     value: 1,
-    label: '初级会员',
+    label: '500',
     shortLabel: '会员',
     color: '#10b981',
     bgColor: '#d1fae5',
@@ -22,7 +22,7 @@ export const MEMBER_LEVELS = [
   },
   {
     value: 2,
-    label: '中级会员',
+    label: '1000',
     shortLabel: '会员',
     color: '#3b82f6',
     bgColor: '#dbeafe',
@@ -31,7 +31,7 @@ export const MEMBER_LEVELS = [
   },
   {
     value: 3,
-    label: '高级会员',
+    label: '2000',
     shortLabel: '会员',
     color: '#8b5cf6',
     bgColor: '#ede9fe',
@@ -40,7 +40,7 @@ export const MEMBER_LEVELS = [
   },
   {
     value: 4,
-    label: '至尊会员',
+    label: '5000',
     shortLabel: '会员',
     color: '#ef4444',
     bgColor: '#fee2e2',

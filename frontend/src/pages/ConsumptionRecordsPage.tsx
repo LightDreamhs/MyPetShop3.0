@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Wallet } from 'lucide-react';
 import { useCustomerStore } from '../stores/customerStore';
 import { useConsumptionStore } from '../stores/consumptionStore';
 import { Button } from '../components/ui/Button';
@@ -8,6 +8,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { getMemberLevelLabel, getMemberLevelBgColor, getMemberLevelColor, getMemberLevelBorderColor } from '../utils/memberLevel';
 import type { ConsumptionRecordFormData } from '../types';
+import { customerApi, transactionApi } from '../services/api';
 
 export const ConsumptionRecordsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +32,13 @@ export const ConsumptionRecordsPage: React.FC = () => {
   // 金额验证错误和输入框显示值
   const [amountError, setAmountError] = useState('');
   const [amountInputValue, setAmountInputValue] = useState('');
+
+  // 余额支付状态和错误
+  const [useBalance, setUseBalance] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
+
+  // 是否记账选项
+  const [recordTransaction, setRecordTransaction] = useState(false);
 
   const [formData, setFormData] = useState<ConsumptionRecordFormData>({
     date: new Date().toISOString().split('T')[0],
@@ -115,6 +123,10 @@ export const ConsumptionRecordsPage: React.FC = () => {
     e.preventDefault();
     if (!customerId) return;
 
+    // 清除之前的错误
+    setBalanceError('');
+    clearError();
+
     // 验证金额（如果填写了）
     if (amountInputValue === '' || amountInputValue === '.') {
       // 金额是可选的，允许为空
@@ -125,7 +137,41 @@ export const ConsumptionRecordsPage: React.FC = () => {
     }
 
     try {
+      // 步骤1: 先创建消费记录
       await createRecord(parseInt(customerId), formData);
+
+      // 步骤2: 如果勾选了"是否记账"，创建记账记录
+      if (recordTransaction && formData.amount && currentCustomer) {
+        try {
+          await transactionApi.createTransaction({
+            type: 'income',
+            amount: formData.amount,
+            description: `${currentCustomer.petName}-${formData.item}-${(formData.amount / 100).toFixed(2)}元-${currentCustomer.phone}`,
+            date: formData.date,
+          });
+        } catch (error) {
+          console.error('创建记账记录失败:', error);
+          // 不阻断流程，仅记录错误
+        }
+      }
+
+      // 步骤3: 如果使用余额支付，扣减余额（在消费记录创建成功后）
+      if (useBalance && formData.amount) {
+        try {
+          await customerApi.deductBalance(parseInt(customerId), {
+            amount: formData.amount,
+            description: `消费: ${formData.item}`,
+          });
+          // 刷新客户信息，显示更新后的余额
+          await fetchCustomer(parseInt(customerId));
+        } catch (error: any) {
+          // 余额扣减失败，记录错误但不阻断
+          console.error('余额扣减失败:', error);
+          setBalanceError('消费记录已创建，但余额扣减失败: ' + (error.response?.data?.message || '未知错误'));
+        }
+      }
+
+      // 成功，关闭对话框并重置表单
       setIsAddDialogOpen(false);
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -136,9 +182,14 @@ export const ConsumptionRecordsPage: React.FC = () => {
       });
       setAmountError('');
       setAmountInputValue('');
+      setUseBalance(false);
+      setBalanceError('');
+      setRecordTransaction(false);
       loadRecords();
-    } catch (error) {
-      // Error handled by store
+    } catch (error: any) {
+      // 创建消费记录失败，显示错误信息
+      console.error('创建消费记录失败:', error);
+      // 错误信息已由 store 处理
     }
   };
 
@@ -210,6 +261,18 @@ export const ConsumptionRecordsPage: React.FC = () => {
                     >
                       {getMemberLevelLabel(currentCustomer.memberLevel)}
                     </span>
+                  </div>
+                  {/* 余额显示 */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 border border-blue-200">
+                    <div className="flex items-center gap-3">
+                      <Wallet className="text-blue-600" size={20} />
+                      <div>
+                        <p className="text-xs text-gray-600">会员余额</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          ¥{((currentCustomer.balance || 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <p className="text-gray-600">
                     <span className="font-medium">主人:</span> {currentCustomer.ownerName}
@@ -334,17 +397,20 @@ export const ConsumptionRecordsPage: React.FC = () => {
           });
           setAmountError('');
           setAmountInputValue('');
+          setUseBalance(false);
+          setBalanceError('');
+          setRecordTransaction(false);
           clearError();
         }}
         title="新增消费记录"
-        size="lg"
       >
-        <form onSubmit={handleAddRecord} className="space-y-4">
+        <div className="max-h-[70vh] overflow-y-auto px-1">
+          <form onSubmit={handleAddRecord} className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">消费日期 *</label>
             <input
               type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               required
@@ -355,7 +421,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">消费项目 *</label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.item}
               onChange={(e) => setFormData({ ...formData, item: e.target.value })}
               placeholder="例如: 洗澡美容、疫苗接种"
@@ -367,7 +433,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">发现问题</label>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={3}
+              rows={2}
               value={formData.problem}
               onChange={(e) => setFormData({ ...formData, problem: e.target.value })}
               placeholder="例如: 皮肤轻微红疹"
@@ -378,7 +444,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">建议</label>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={3}
+              rows={2}
               value={formData.suggestion}
               onChange={(e) => setFormData({ ...formData, suggestion: e.target.value })}
               placeholder="例如: 建议使用低敏洗毛精，注意保持干燥"
@@ -390,7 +456,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
             <input
               type="text"
               inputMode="decimal"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 amountError ? 'border-red-500' : 'border-gray-300'
               } [appearance:none] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
               value={amountInputValue}
@@ -401,6 +467,105 @@ export const ConsumptionRecordsPage: React.FC = () => {
             {amountError && (
               <p className="mt-1 text-sm text-red-600">{amountError}</p>
             )}
+          </div>
+
+          {/* 余额支付选项 - 始终显示，更加醒目 */}
+          {currentCustomer && (
+            <div className={`border-2 rounded-lg p-4 transition-all ${
+              useBalance
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+            }`}>
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="useBalance"
+                  checked={useBalance}
+                  onChange={(e) => {
+                    setUseBalance(e.target.checked);
+                    setBalanceError(''); // 清除错误
+                  }}
+                  disabled={formData.amount ? (currentCustomer.balance || 0) < formData.amount : false}
+                  className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <label htmlFor="useBalance" className="flex-1 cursor-pointer">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`font-semibold ${useBalance ? 'text-blue-700' : 'text-gray-900'}`}>
+                      💰 使用余额支付
+                    </span>
+                    {formData.amount && (
+                      <span className={`text-sm ${useBalance ? 'text-blue-700' : 'text-gray-600'}`}>
+                        当前余额: <span className="font-bold">¥{((currentCustomer.balance || 0) / 100).toFixed(2)}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 余额信息 */}
+                  {formData.amount && (
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className={useBalance ? 'text-blue-700' : 'text-gray-600'}>
+                          消费金额:
+                        </span>
+                        <span className={`font-semibold ${useBalance ? 'text-blue-700' : 'text-gray-900'}`}>
+                          ¥{(formData.amount / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={useBalance ? 'text-blue-700' : 'text-gray-600'}>
+                          {useBalance ? '扣款后余额:' : '当前余额:'}
+                        </span>
+                        <span className={`font-bold ${useBalance ? 'text-blue-900' : 'text-gray-900'}`}>
+                          ¥{((useBalance
+                            ? ((currentCustomer.balance || 0) - formData.amount)
+                            : (currentCustomer.balance || 0)
+                          ) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      {(currentCustomer.balance || 0) < formData.amount && useBalance && (
+                        <p className="text-red-600 font-medium mt-2">⚠️ 余额不足，无法使用余额支付</p>
+                      )}
+                    </div>
+                  )}
+                  {!formData.amount && (
+                    <p className="text-gray-500 text-xs mt-1">请先填写消费金额</p>
+                  )}
+                </label>
+              </div>
+              {/* 余额支付错误提示 */}
+              {balanceError && (
+                <p className="mt-2 text-sm text-red-600">{balanceError}</p>
+              )}
+            </div>
+          )}
+
+          {/* 是否记账选项 */}
+          <div className={`border-2 rounded-lg p-4 ${
+            recordTransaction
+              ? 'border-green-500 bg-green-50'
+              : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+          }`}>
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="recordTransaction"
+                checked={recordTransaction}
+                onChange={(e) => setRecordTransaction(e.target.checked)}
+                className="w-5 h-5 mt-0.5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+              />
+              <label htmlFor="recordTransaction" className="flex-1 cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <span className={`font-semibold ${recordTransaction ? 'text-green-700' : 'text-gray-900'}`}>
+                    📝 记录到财务记账
+                  </span>
+                </div>
+                <p className={`text-sm mt-1 ${recordTransaction ? 'text-green-700' : 'text-gray-600'}`}>
+                  {recordTransaction
+                    ? '✅ 此消费记录将同时添加到财务记账页面'
+                    : 'ℹ️ 勾选后，此消费记录将同时添加到财务记账页面'}
+                </p>
+              </label>
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -420,6 +585,9 @@ export const ConsumptionRecordsPage: React.FC = () => {
                 });
                 setAmountError('');
                 setAmountInputValue('');
+                setUseBalance(false);
+                setBalanceError('');
+                setRecordTransaction(false);
                 clearError();
               }}
             >
@@ -429,7 +597,8 @@ export const ConsumptionRecordsPage: React.FC = () => {
               {isLoading ? '提交中...' : '确认添加'}
             </Button>
           </div>
-        </form>
+          </form>
+        </div>
       </Dialog>
     </div>
   );

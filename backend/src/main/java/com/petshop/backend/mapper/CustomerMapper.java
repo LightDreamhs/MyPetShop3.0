@@ -47,4 +47,9 @@ public interface CustomerMapper {
      * 删除客户
      */
     int deleteById(Long id);
+
+    /**
+     * 更新客户余额
+     */
+    int updateBalance(@Param("id") Long id, @Param("balance") Long balance);
 }
