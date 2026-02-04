@@ -36,9 +36,14 @@ public class Customer extends BaseEntity {
     private Boolean isMember;
 
     /**
-     * 会员级别（0非会员1初级2中级3高级4至尊）
+     * 会员级别
      */
     private Integer memberLevel;
+
+    /**
+     * 会员余额（单位：分）
+     */
+    private Long balance;
 
     /**
      * 宠物头像URL

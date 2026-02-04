@@ -15,6 +15,9 @@ import type {
   TransactionFormData,
   TransactionStatistics,
   UploadResponse,
+  BalanceTransaction,
+  BalanceRechargeRequest,
+  BalanceDeductRequest,
 } from '../types';
 
 // ==================== 认证模块 ====================
@@ -107,6 +110,18 @@ export const customerApi = {
   // 删除客户
   deleteCustomer: (id: number) =>
     axiosInstance.delete<ApiResponse<null>>(`/customers/${id}`),
+
+  // 会员充值
+  rechargeBalance: (id: number, data: BalanceRechargeRequest) =>
+    axiosInstance.post<ApiResponse<Customer>>(`/customers/${id}/balance/recharge`, data),
+
+  // 会员余额扣减
+  deductBalance: (id: number, data: BalanceDeductRequest) =>
+    axiosInstance.post<ApiResponse<Customer>>(`/customers/${id}/balance/deduct`, data),
+
+  // 获取余额变动历史
+  getBalanceHistory: (id: number, params?: { page?: number; pageSize?: number }) =>
+    axiosInstance.get<ApiResponse<PaginatedResponse<BalanceTransaction>>>(`/customers/${id}/balance/history`, { params }),
 };
 
 // ==================== 消费记录模块 ====================

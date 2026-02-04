@@ -1,7 +1,10 @@
 package com.petshop.backend.controller;
 
+import com.petshop.backend.dto.BalanceDeductRequest;
+import com.petshop.backend.dto.BalanceRechargeRequest;
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.dto.Result;
+import com.petshop.backend.entity.BalanceTransaction;
 import com.petshop.backend.entity.Customer;
 import com.petshop.backend.service.CustomerService;
 import jakarta.validation.Valid;
@@ -99,6 +102,44 @@ public class CustomerController {
     public Result<Void> deleteById(@PathVariable Long id) {
         customerService.deleteById(id);
         return Result.success("删除成功", null);
+    }
+
+    /**
+     * 会员充值
+     */
+    @PostMapping("/{id}/balance/recharge")
+    public Result<Customer> recharge(
+            @PathVariable Long id,
+            @Valid @RequestBody BalanceRechargeRequest request) {
+        // TODO: 从 JWT 中获取操作人ID
+        Long operatorId = 1L;
+        Customer customer = customerService.recharge(id, request, operatorId);
+        return Result.success("充值成功", customer);
+    }
+
+    /**
+     * 会员余额扣减
+     */
+    @PostMapping("/{id}/balance/deduct")
+    public Result<Customer> deduct(
+            @PathVariable Long id,
+            @Valid @RequestBody BalanceDeductRequest request) {
+        // TODO: 从 JWT 中获取操作人ID
+        Long operatorId = 1L;
+        Customer customer = customerService.deduct(id, request, operatorId);
+        return Result.success("扣减成功", customer);
+    }
+
+    /**
+     * 获取余额变动历史
+     */
+    @GetMapping("/{id}/balance/history")
+    public Result<PageResult<BalanceTransaction>> getBalanceHistory(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        PageResult<BalanceTransaction> result = customerService.getBalanceHistory(id, page, pageSize);
+        return Result.success(result);
     }
 
     /**

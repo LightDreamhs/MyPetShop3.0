@@ -30,7 +30,7 @@
                 AND description LIKE CONCAT('%', #{search}, '%')
             </if>
         </where>
-        ORDER BY date DESC
+        ORDER BY date DESC, id DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 

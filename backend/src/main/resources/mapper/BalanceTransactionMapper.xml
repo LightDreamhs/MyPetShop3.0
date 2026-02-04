@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.petshop.backend.mapper.BalanceTransactionMapper">
+
+    <resultMap id="BaseResultMap" type="com.petshop.backend.entity.BalanceTransaction">
+        <id column="id" property="id"/>
+        <result column="customer_id" property="customerId"/>
+        <result column="type" property="type"/>
+        <result column="amount" property="amount"/>
+        <result column="balance_before" property="balanceBefore"/>
+        <result column="balance_after" property="balanceAfter"/>
+        <result column="description" property="description"/>
+        <result column="operator_id" property="operatorId"/>
+        <result column="operator_name" property="operatorName"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <select id="findByCustomerId" resultMap="BaseResultMap">
+        SELECT
+            bt.id,
+            bt.customer_id,
+            bt.type,
+            bt.amount,
+            bt.balance_before,
+            bt.balance_after,
+            bt.description,
+            bt.operator_id,
+            COALESCE(u.nickname, u.username) as operator_name,
+            bt.created_at
+        FROM balance_transactions bt
+        LEFT JOIN users u ON bt.operator_id = u.id
+        WHERE bt.customer_id = #{customerId}
+        ORDER BY bt.created_at DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countByCustomerId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM balance_transactions
+        WHERE customer_id = #{customerId}
+    </select>
+
+    <insert id="insert" parameterType="com.petshop.backend.entity.BalanceTransaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO balance_transactions (customer_id, type, amount, balance_before, balance_after, description, operator_id)
+        VALUES (#{customerId}, #{type}, #{amount}, #{balanceBefore}, #{balanceAfter}, #{description}, #{operatorId})
+    </insert>
+
+</mapper>

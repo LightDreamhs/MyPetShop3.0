@@ -49,7 +49,8 @@ CREATE TABLE `customers` (
   `owner_name` VARCHAR(100) NOT NULL COMMENT '主人姓名',
   `phone` VARCHAR(20) NOT NULL COMMENT '电话号码',
   `is_member` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否会员（0否1是，已废弃，使用member_level替代）',
-  `member_level` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '会员级别（0非会员1初级2中级3高级4至尊）',
+  `member_level` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '会员级别',
+  `balance` BIGINT NOT NULL DEFAULT 0 COMMENT '会员余额（单位：分）',
   `avatar` VARCHAR(500) DEFAULT NULL COMMENT '宠物头像URL',
   `pet_type` VARCHAR(50) DEFAULT NULL COMMENT '宠物类型（猫/狗等）',
   `breed` VARCHAR(100) DEFAULT NULL COMMENT '品种',
@@ -99,6 +100,25 @@ CREATE TABLE `transactions` (
   KEY `idx_type` (`type`),
   KEY `idx_date` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='财务记录表';
+
+-- ============================================
+-- 6. 会员余额变动历史表 (balance_transactions)
+-- ============================================
+DROP TABLE IF EXISTS `balance_transactions`;
+CREATE TABLE `balance_transactions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `customer_id` BIGINT UNSIGNED NOT NULL COMMENT '客户ID',
+  `type` ENUM('RECHARGE', 'DEDUCT', 'REFUND') NOT NULL COMMENT '类型',
+  `amount` BIGINT NOT NULL COMMENT '变动金额（单位：分）',
+  `balance_before` BIGINT NOT NULL COMMENT '变动前余额',
+  `balance_after` BIGINT NOT NULL COMMENT '变动后余额',
+  `description` VARCHAR(500) DEFAULT NULL COMMENT '说明',
+  `operator_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '操作人ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_customer_id` (`customer_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员余额变动历史表';
 
 -- ============================================
 -- 初始化数据

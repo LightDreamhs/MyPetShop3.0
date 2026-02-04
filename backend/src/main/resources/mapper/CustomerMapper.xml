@@ -10,6 +10,7 @@
         <result column="phone" property="phone"/>
         <result column="is_member" property="isMember"/>
         <result column="member_level" property="memberLevel"/>
+        <result column="balance" property="balance"/>
         <result column="avatar" property="avatar"/>
         <result column="pet_type" property="petType"/>
         <result column="breed" property="breed"/>
@@ -21,7 +22,7 @@
     </resultMap>
 
     <select id="findByPage" resultMap="BaseResultMap">
-        SELECT id, pet_name, owner_name, phone, is_member, member_level, avatar, pet_type, breed, age, gender, notes, created_at, updated_at
+        SELECT id, pet_name, owner_name, phone, is_member, member_level, balance, avatar, pet_type, breed, age, gender, notes, created_at, updated_at
         FROM customers
         <where>
             <if test="search != null and search != ''">
@@ -57,7 +58,7 @@
     </select>
 
     <select id="findById" resultMap="BaseResultMap">
-        SELECT id, pet_name, owner_name, phone, is_member, member_level, avatar, pet_type, breed, age, gender, notes, created_at, updated_at
+        SELECT id, pet_name, owner_name, phone, is_member, member_level, balance, avatar, pet_type, breed, age, gender, notes, created_at, updated_at
         FROM customers
         WHERE id = #{id}
     </select>
@@ -87,5 +88,11 @@
         DELETE FROM customers
         WHERE id = #{id}
     </delete>
+
+    <update id="updateBalance">
+        UPDATE customers
+        SET balance = #{balance}
+        WHERE id = #{id}
+    </update>
 
 </mapper>

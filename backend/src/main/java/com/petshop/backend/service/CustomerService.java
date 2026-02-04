@@ -1,5 +1,8 @@
 package com.petshop.backend.service;
 
+import com.petshop.backend.dto.BalanceDeductRequest;
+import com.petshop.backend.dto.BalanceRechargeRequest;
+import com.petshop.backend.entity.BalanceTransaction;
 import com.petshop.backend.entity.Customer;
 
 /**
@@ -31,4 +34,19 @@ public interface CustomerService {
      * 删除客户
      */
     void deleteById(Long id);
+
+    /**
+     * 会员充值
+     */
+    Customer recharge(Long id, BalanceRechargeRequest request, Long operatorId);
+
+    /**
+     * 会员余额扣减
+     */
+    Customer deduct(Long id, BalanceDeductRequest request, Long operatorId);
+
+    /**
+     * 获取余额变动历史
+     */
+    com.petshop.backend.dto.PageResult<BalanceTransaction> getBalanceHistory(Long id, Integer page, Integer pageSize);
 }

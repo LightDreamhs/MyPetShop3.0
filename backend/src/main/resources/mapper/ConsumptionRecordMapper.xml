@@ -27,7 +27,7 @@
                 AND date &lt;= #{endDate}
             </if>
         </where>
-        ORDER BY date DESC
+        ORDER BY date DESC, id DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 
