@@ -25,32 +25,41 @@ backend/
 │   │   ├── ProductController.java        # 商品控制器
 │   │   ├── CustomerController.java       # 客户控制器
 │   │   ├── ConsumptionRecordController.java  # 消费记录控制器
-│   │   └── TransactionController.java    # 财务记录控制器
+│   │   ├── TransactionController.java    # 财务记录控制器
+│   │   ├── UploadController.java         # 文件上传控制器
+│   │   └── UserController.java           # 用户控制器
 │   ├── service/                          # 服务层
 │   │   ├── AuthService.java              # 认证服务接口
 │   │   ├── ProductService.java           # 商品服务接口
 │   │   ├── CustomerService.java          # 客户服务接口
 │   │   ├── ConsumptionRecordService.java # 消费记录服务接口
 │   │   ├── TransactionService.java       # 财务记录服务接口
+│   │   ├── UserService.java              # 用户服务接口
+│   │   ├── FileService.java              # 文件服务接口
 │   │   └── impl/                         # 服务实现类
 │   ├── mapper/                           # MyBatis Mapper接口
 │   │   ├── UserMapper.java
 │   │   ├── ProductMapper.java
 │   │   ├── CustomerMapper.java
 │   │   ├── ConsumptionRecordMapper.java
-│   │   └── TransactionMapper.java
+│   │   ├── TransactionMapper.java
+│   │   └── BalanceTransactionMapper.java
 │   ├── entity/                           # 实体类
 │   │   ├── BaseEntity.java               # 基础实体类
 │   │   ├── User.java                     # 用户实体
 │   │   ├── Product.java                  # 商品实体
-│   │   ├── Customer.java                 # 客户实体
+│   │   ├── Customer.java                 # 客户实体（包含余额字段）
+│   │   ├── BalanceTransaction.java       # 余额交易记录实体
 │   │   ├── ConsumptionRecord.java        # 消费记录实体
 │   │   └── Transaction.java              # 财务记录实体
 │   ├── dto/                              # 数据传输对象
 │   │   ├── Result.java                   # 统一响应结果
 │   │   ├── PageResult.java               # 分页响应结果
 │   │   ├── LoginResponse.java            # 登录响应
-│   │   └── TransactionStatistics.java    # 财务统计
+│   │   ├── TransactionStatistics.java    # 财务统计
+│   │   ├── UploadResponse.java           # 上传响应
+│   │   ├── BalanceRechargeRequest.java   # 充值请求
+│   │   └── BalanceDeductRequest.java     # 扣减请求
 │   ├── exception/                        # 异常处理
 │   │   ├── BusinessException.java        # 业务异常
 │   │   └── GlobalExceptionHandler.java   # 全局异常处理器
@@ -148,6 +157,9 @@ java -jar target/pet-shop-backend-1.0.0.jar
 - `POST /customers` - 创建客户（需指定会员级别0-4）
 - `PUT /customers/{id}` - 更新客户（可修改会员级别）
 - `DELETE /customers/{id}` - 删除客户
+- `POST /customers/{id}/balance/recharge` - 会员余额充值
+- `POST /customers/{id}/balance/deduct` - 会员余额扣减
+- `GET /customers/{id}/balance/history` - 获取余额变动历史
 
 #### 消费记录模块
 - `GET /customers/{customerId}/consumption-records` - 获取客户消费记录
@@ -157,12 +169,22 @@ java -jar target/pet-shop-backend-1.0.0.jar
 - `DELETE /consumption-records/{id}` - 删除消费记录
 
 #### 财务记账模块
-- `GET /transactions` - 获取财务记录列表
+- `GET /transactions` - 获取财务记录列表（支持搜索）
 - `GET /transactions/{id}` - 获取财务记录详情
 - `POST /transactions` - 创建财务记录
 - `PUT /transactions/{id}` - 更新财务记录
 - `DELETE /transactions/{id}` - 删除财务记录
 - `GET /transactions/statistics` - 获取财务统计
+
+#### 用户管理模块
+- `GET /users` - 获取用户列表（仅管理员）
+- `GET /users/{id}` - 获取用户详情
+- `POST /users` - 创建用户（仅管理员）
+- `PUT /users/{id}` - 更新用户
+- `DELETE /users/{id}` - 删除用户（仅管理员）
+
+#### 文件上传模块
+- `POST /upload/image` - 上传图片
 
 ## 核心功能说明
 
@@ -192,9 +214,11 @@ java -jar target/pet-shop-backend-1.0.0.jar
 | 1001  | 参数错误     | 请求参数校验失败    |
 | 1002  | 未登录       | token缺失或无效     |
 | 1003  | token过期    | 需要重新登录        |
+| 1005  | 权限不足     | 无权限访问该资源    |
 | 2001  | 用户不存在   | 登录时用户不存在    |
 | 3001  | 商品不存在   | 操作的商品不存在    |
 | 4001  | 客户不存在   | 操作的客户不存在    |
+| 4002  | 余额不足     | 会员余额不足以扣减  |
 | 5001  | 记录不存在   | 操作的记录不存在    |
 
 ### 数据验证
@@ -219,12 +243,15 @@ java -jar target/pet-shop-backend-1.0.0.jar
 | 级别值 | 名称 | 说明 |
 |--------|------|------|
 | 0 | 非会员 | 普通客户，无会员权益 |
-| 1 | 初级会员 | 入门会员等级 |
-| 2 | 中级会员 | 中等会员等级 |
-| 3 | 高级会员 | 高等级会员 |
-| 4 | 至尊会员 | 最高等级会员 |
+| 1 | 500元档 | 充值500元会员档位 |
+| 2 | 1000元档 | 充值1000元会员档位 |
+| 3 | 2000元档 | 充值2000元会员档位 |
+| 4 | 5000元档 | 充值5000元会员档位 |
 
-**注意**: `isMember` 字段已废弃，请使用 `memberLevel` 字段（0表示非会员，1-4表示会员等级）
+**注意**：
+- `isMember` 字段已废弃，请使用 `memberLevel` 字段（0表示非会员，1-4表示会员档位）
+- 客户实体包含 `balance` 字段，用于会员余额管理（单位：分）
+- 余额交易记录通过 `BalanceTransaction` 实体进行追踪
 
 ## 测试
 
