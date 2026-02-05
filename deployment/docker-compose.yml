@@ -9,6 +9,7 @@ services:
     image: mysql:8.0
     container_name: petshop-mysql
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: pet_shop_3_0
@@ -26,6 +27,15 @@ services:
       - ./my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     networks:
       - petshop-network
+    # 资源限制（防止单个服务占用过多资源）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -44,6 +54,7 @@ services:
       dockerfile: ../deployment/Dockerfile.backend
     container_name: petshop-backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # 数据库配置
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pet_shop_3_0?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -62,6 +73,25 @@ services:
 
       # Spring Profile
       SPRING_PROFILES_ACTIVE: production
+
+      # JVM 内存配置（针对2GB服务器优化）
+      JAVA_OPTS: >-
+        -Xms256m
+        -Xmx512m
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+        -XX:+PrintGCDetails
+        -XX:+PrintGCDateStamps
+        -Xloggc:/app/logs/gc.log
+    # 资源限制（防止单个服务占用过多资源）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 384M
     ports:
       - "8080:8080"
     volumes:
@@ -88,11 +118,21 @@ services:
         VITE_API_BASE_URL: /api/v1
     container_name: petshop-frontend
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "80:80"
     volumes:
       # Nginx 日志
       - nginx-logs:/var/log/nginx
+    # 资源限制（Nginx 非常轻量）
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     depends_on:
       backend:
         condition: service_healthy
@@ -118,3 +158,10 @@ volumes:
 networks:
   petshop-network:
     driver: bridge
+
+# 全局日志配置（限制容器日志大小）
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
