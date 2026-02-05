@@ -917,14 +917,13 @@ export const CustomersPage: React.FC = () => {
           setIsSubmitting(true);
 
           try {
-            let response;
             if (balanceDialogType === 'recharge') {
-              response = await customerApi.rechargeBalance(customer.id, {
+              await customerApi.rechargeBalance(customer.id, {
                 amount: amountInCents,
                 description: balanceDescription || undefined,
               });
             } else {
-              response = await customerApi.deductBalance(customer.id, {
+              await customerApi.deductBalance(customer.id, {
                 amount: amountInCents,
                 description: balanceDescription || undefined,
               });
