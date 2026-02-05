@@ -4,9 +4,9 @@
 
 ## 技术栈
 
-- **框架**: React 18 + TypeScript
+- **框架**: React 19 + TypeScript
 - **构建工具**: Vite
-- **样式**: Tailwind CSS
+- **样式**: Tailwind CSS 4
 - **状态管理**: Zustand
 - **路由**: React Router DOM
 - **HTTP 客户端**: Axios
@@ -31,7 +31,8 @@ frontend/
 │   │   ├── productStore.ts
 │   │   ├── customerStore.ts
 │   │   ├── consumptionStore.ts
-│   │   └── transactionStore.ts
+│   │   ├── transactionStore.ts
+│   │   └── balanceStore.ts
 │   ├── services/          # API 服务
 │   │   └── api.ts        # API 接口定义
 │   ├── types/             # TypeScript 类型定义
@@ -77,6 +78,10 @@ frontend/
 - 客户详情查看
 - 客户搜索（按姓名/电话）
 - 会员筛选
+- **会员余额管理**：
+  - 会员余额充值
+  - 会员余额扣减
+  - 余额变动历史查询
 
 ### 5. 消费记录
 - 消费记录列表

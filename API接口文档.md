@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 |------|------|
 | 项目名称 | 宠物店后台管理系统 (Pet Shop Admin System) |
-| 版本 | v1.2.0 |
+| 版本 | v1.3.0 |
 | 基础路径 | `/api/v1` |
 | 协议 | HTTPS |
 | 数据格式 | JSON |
@@ -132,13 +132,31 @@ interface Customer {
   ownerName: string;       // 主人姓名
   phone: string;           // 电话号码
   isMember: boolean;       // 是否会员（已废弃，使用memberLevel）
-  memberLevel: number;     // 会员级别（0非会员1初级2中级3高级4至尊）
+  memberLevel: number;     // 会员级别（0非会员 1:500元 2:1000元 3:2000元 4:5000元）
+  balance: number;         // 会员余额（单位：分）
   avatar?: string;         // 宠物头像URL
   petType?: string;        // 宠物类型（猫/狗等）
   breed?: string;          // 品种
   age?: number;            // 年龄
   gender?: string;         // 性别
   notes?: string;          // 备注信息
+  createdAt: string;       // 创建时间
+  updatedAt: string;       // 更新时间
+}
+```
+
+### BalanceTransaction（余额交易记录）
+```typescript
+interface BalanceTransaction {
+  id: number;              // 记录ID
+  customerId: number;      // 客户ID
+  type: 'RECHARGE' | 'DEDUCT' | 'REFUND';  // 交易类型：充值/扣减/退款
+  amount: number;          // 变动金额（单位：分）
+  balanceBefore: number;   // 变动前余额
+  balanceAfter: number;    // 变动后余额
+  description?: string;    // 说明
+  operatorId: number;      // 操作人ID
+  operatorName?: string;   // 操作人名称
   createdAt: string;       // 创建时间
   updatedAt: string;       // 更新时间
 }
@@ -784,7 +802,7 @@ Authorization: Bearer <access_token>
   "ownerName": "string",      // 主人姓名（必填）
   "phone": "string",          // 电话号码（必填，11位手机号）
   "isMember": boolean,        // 是否会员（必填，默认false，已废弃）
-  "memberLevel": number,      // 会员级别（必填，0-4，默认0）
+  "memberLevel": number,      // 会员级别（必填，0非会员 1:500元 2:1000元 3:2000元 4:5000元，默认0）
   "avatar": "string",         // 宠物头像URL（可选）
   "petType": "string",        // 宠物类型（可选）
   "breed": "string",          // 品种（可选）
@@ -839,7 +857,7 @@ id: number    // 客户ID
   "ownerName": "string",      // 主人姓名
   "phone": "string",          // 电话号码（11位手机号）
   "isMember": boolean,        // 是否会员（已废弃）
-  "memberLevel": number,      // 会员级别（0-4）
+  "memberLevel": number,      // 会员级别（0非会员 1:500元 2:1000元 3:2000元 4:5000元）
   "avatar": "string",         // 宠物头像URL
   "petType": "string",        // 宠物类型
   "breed": "string",          // 品种
@@ -893,6 +911,163 @@ id: number    // 客户ID
   "code": 200,
   "message": "删除成功",
   "data": null
+}
+```
+
+### 4.6 会员充值
+
+**接口地址：** `POST /customers/:id/balance/recharge`
+
+**请求头：**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**路径参数：**
+```
+id: number    // 客户ID
+```
+
+**请求参数：**
+```json
+{
+  "amount": number,           // 充值金额（单位：分，必填，>0）
+  "description": string       // 说明（可选）
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "message": "充值成功",
+  "data": {
+    "id": 1,
+    "petName": "旺财",
+    "ownerName": "张三",
+    "phone": "13800138000",
+    "isMember": true,
+    "memberLevel": 2,
+    "balance": 50000,
+    "avatar": "https://images.unsplash.com/photo-xxx",
+    "petType": "狗",
+    "breed": "金毛",
+    "age": 3,
+    "gender": "公",
+    "notes": "性格温顺，喜欢玩球",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-02T00:00:00Z"
+  }
+}
+```
+
+### 4.7 会员余额扣减
+
+**接口地址：** `POST /customers/:id/balance/deduct`
+
+**请求头：**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**路径参数：**
+```
+id: number    // 客户ID
+```
+
+**请求参数：**
+```json
+{
+  "amount": number,           // 扣减金额（单位：分，必填，>0）
+  "description": string       // 说明（可选）
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "message": "扣减成功",
+  "data": {
+    "id": 1,
+    "petName": "旺财",
+    "ownerName": "张三",
+    "phone": "13800138000",
+    "isMember": true,
+    "memberLevel": 2,
+    "balance": 45000,
+    "avatar": "https://images.unsplash.com/photo-xxx",
+    "petType": "狗",
+    "breed": "金毛",
+    "age": 3,
+    "gender": "公",
+    "notes": "性格温顺，喜欢玩球",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-02T01:00:00Z"
+  }
+}
+```
+
+### 4.8 获取余额变动历史
+
+**接口地址：** `GET /customers/:id/balance/history`
+
+**请求头：**
+```
+Authorization: Bearer <access_token>
+```
+
+**路径参数：**
+```
+id: number    // 客户ID
+```
+
+**Query参数：**
+```
+page: number          // 页码（默认1）
+pageSize: number      // 每页数量（默认10）
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "customerId": 1,
+        "type": "RECHARGE",
+        "amount": 50000,
+        "balanceBefore": 0,
+        "balanceAfter": 50000,
+        "description": "会员充值",
+        "operatorId": 1,
+        "operatorName": "管理员",
+        "createdAt": "2024-01-15T00:00:00Z",
+        "updatedAt": "2024-01-15T00:00:00Z"
+      },
+      {
+        "id": 2,
+        "customerId": 1,
+        "type": "DEDUCT",
+        "amount": 5000,
+        "balanceBefore": 50000,
+        "balanceAfter": 45000,
+        "description": "消费扣款",
+        "operatorId": 1,
+        "operatorName": "管理员",
+        "createdAt": "2024-01-16T00:00:00Z",
+        "updatedAt": "2024-01-16T00:00:00Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 10
+  }
 }
 ```
 
@@ -1123,6 +1298,7 @@ pageSize: number      // 每页数量（默认10）
 type: string          // 类型（income/expense，可选）
 startDate: string     // 开始日期（可选，ISO 8601）
 endDate: string       // 结束日期（可选，ISO 8601）
+search: string        // 搜索关键词（描述，可选）
 ```
 
 **响应示例：**
@@ -1403,10 +1579,10 @@ file: File        // 图片文件（支持jpg、jpeg、png，最大5MB）
 | 级别值 | 名称 | 说明 |
 |--------|------|------|
 | 0 | 非会员 | 普通客户，无会员权益 |
-| 1 | 初级会员 | 入门会员等级 |
-| 2 | 中级会员 | 中等会员等级 |
-| 3 | 高级会员 | 高等级会员 |
-| 4 | 至尊会员 | 最高等级会员 |
+| 1 | 500元档 | 充值500元会员档位 |
+| 2 | 1000元档 | 充值1000元会员档位 |
+| 3 | 2000元档 | 充值2000元会员档位 |
+| 4 | 5000元档 | 充值5000元会员档位 |
 
 ---
 
@@ -1416,10 +1592,20 @@ file: File        // 图片文件（支持jpg、jpeg、png，最大5MB）
 
 ---
 
-**文档版本：** v1.2.0
-**最后更新：** 2025-01-31
+**文档版本：** v1.3.0
+**最后更新：** 2025-02-05
 
 ## 📋 更新日志
+
+### v1.3.0 (2025-02-05)
+- ✨ **会员余额管理**：新增完整的会员余额管理功能
+  - 支持会员余额充值和扣减
+  - 支持查询余额变动历史记录
+  - 新增 BalanceTransaction 数据模型
+  - 客户模型新增 `balance` 字段
+- 🔧 **财务记账优化**：新增 `search` 参数，支持按描述关键词搜索
+- 📝 更新数据模型和接口文档
+- 🐛 修复部分接口参数说明不清晰的问题
 
 ### v1.2.0 (2025-01-31)
 - 🔒 **权限系统升级**：引入基于角色的访问控制（RBAC）

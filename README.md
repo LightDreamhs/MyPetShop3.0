@@ -10,6 +10,7 @@
 
 - **库存管理**: 商品信息的增删改查、库存管理
 - **客户管理**: 客户信息管理、会员等级管理（5个级别）
+- **会员余额管理**: 支持会员充值、扣减、余额变动历史查询
 - **消费记录**: 客户消费记录跟踪，支持问题诊断和建议
 - **财务记账**: 收支记录管理、财务统计分析
 - **用户认证**: JWT Token 认证机制
@@ -17,11 +18,13 @@
 ## 技术栈
 
 ### 前端
-- React 18
+- React 19
 - TypeScript
 - Vite
-- Ant Design
+- Zustand (状态管理)
+- Tailwind CSS 4
 - Axios
+- Lucide React (图标库)
 
 ### 后端
 - Java 17
@@ -119,15 +122,15 @@ npm run dev
 
 ## 会员级别说明
 
-系统支持5个客户会员级别：
+系统支持5个客户会员级别（按充值金额档位）：
 
 | 级别值 | 名称 | 说明 |
 |--------|------|------|
 | 0 | 非会员 | 普通客户，无会员权益 |
-| 1 | 初级会员 | 入门会员等级 |
-| 2 | 中级会员 | 中等会员等级 |
-| 3 | 高级会员 | 高等级会员 |
-| 4 | 至尊会员 | 最高等级会员 |
+| 1 | 500元档 | 充值500元会员档位 |
+| 2 | 1000元档 | 充值1000元会员档位 |
+| 3 | 2000元档 | 充值2000元会员档位 |
+| 4 | 5000元档 | 充值5000元会员档位 |
 
 ## 开发指南
 
@@ -185,6 +188,9 @@ npm run build
 - `POST /customers` - 创建客户
 - `PUT /customers/:id` - 更新客户
 - `DELETE /customers/:id` - 删除客户
+- `POST /customers/:id/balance/recharge` - 会员充值
+- `POST /customers/:id/balance/deduct` - 会员余额扣减
+- `GET /customers/:id/balance/history` - 获取余额变动历史
 
 ### 消费记录
 - `GET /customers/:customerId/consumption-records` - 获取客户消费记录
@@ -207,7 +213,8 @@ npm run build
 
 - **User**: 用户
 - **Product**: 商品
-- **Customer**: 客户（包含会员级别）
+- **Customer**: 客户（包含会员级别和余额）
+- **BalanceTransaction**: 余额交易记录
 - **ConsumptionRecord**: 消费记录
 - **Transaction**: 财务记录
 
@@ -304,6 +311,13 @@ docker-reset-minimal.bat
 Token 有效期为 2 小时，过期后需要重新登录。
 
 ## 更新日志
+
+### v1.3.0 (2025-02-05)
+- ✨ 新增会员余额管理功能（充值、扣减、历史记录）
+- ✨ 客户模型新增 `balance` 字段
+- ✨ 财务记账新增搜索功能
+- 🎨 前端升级到 React 19、Tailwind CSS 4
+- 📝 更新 API 文档和 README
 
 ### v1.1.0 (2025-01-24)
 - ✨ 新增用户管理模块（用户列表、创建、更新、删除）
