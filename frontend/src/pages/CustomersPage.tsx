@@ -10,6 +10,7 @@ import { Search, Plus, Edit, X, Check, Trash2, Wallet, History } from 'lucide-re
 import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
 import type { Customer, CustomerFormData, BalanceTransaction } from '../types';
 import { customerApi } from '../services/api';
+import { ConsumptionRecordForm } from '../components/ConsumptionRecordForm';
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +49,7 @@ export const CustomersPage: React.FC = () => {
   const [balanceHistory, setBalanceHistory] = useState<BalanceTransaction[]>([]);
   const [balanceHistoryPage, setBalanceHistoryPage] = useState(1);
   const [balanceHistoryTotal, setBalanceHistoryTotal] = useState(0);
+  const [isConsumptionDialogOpen, setIsConsumptionDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<CustomerFormData>({
     petName: '',
@@ -71,7 +73,9 @@ export const CustomersPage: React.FC = () => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         // 优先关闭内层对话框
-        if (isBalanceDialogOpen) {
+        if (isConsumptionDialogOpen) {
+          setIsConsumptionDialogOpen(false);
+        } else if (isBalanceDialogOpen) {
           setIsBalanceDialogOpen(false);
           setBalanceAmount('');
           setBalanceDescription('');
@@ -88,7 +92,7 @@ export const CustomersPage: React.FC = () => {
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isBalanceDialogOpen, isBalanceHistoryOpen, isDetailDialogOpen]);
+  }, [isConsumptionDialogOpen, isBalanceDialogOpen, isBalanceHistoryOpen, isDetailDialogOpen]);
 
   // 监听充值对话框打开状态，验证客户信息
   useEffect(() => {
@@ -199,7 +203,23 @@ export const CustomersPage: React.FC = () => {
   };
 
   const viewConsumptionRecords = (customerId: number) => {
+    // 先导航到消费记录页面，路由变化会自动卸载当前组件并重置状态
     navigate(`/customers/${customerId}/records`);
+    // 关闭客户详情对话框
+    setIsDetailDialogOpen(false);
+  };
+
+  // 新增消费记录成功后的回调
+  const handleConsumptionRecordAdded = async () => {
+    if (selectedCustomer) {
+      try {
+        const updatedCustomer = await customerApi.getCustomer(selectedCustomer.id);
+        setSelectedCustomer(updatedCustomer.data.data);
+        loadCustomers();
+      } catch (error) {
+        // 静默处理
+      }
+    }
   };
 
   // 根据会员筛选器过滤客户列表
@@ -694,35 +714,49 @@ export const CustomersPage: React.FC = () => {
                 </div>
 
                 {/* 操作按钮 */}
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setIsDetailDialogOpen(false);
-                      setIsEditMode(false);
-                      setSelectedCustomer(null);
-                      resetFormData();
-                      // 关闭所有可能打开的内层对话框
-                      setIsBalanceDialogOpen(false);
-                      setIsBalanceHistoryOpen(false);
-                    }}
-                  >
-                    关闭
-                  </Button>
-                  <Button onClick={startEdit}>
-                    <Edit size={18} className="mr-2" />
-                    编辑
-                  </Button>
-                  <Button onClick={() => viewConsumptionRecords(selectedCustomer.id)}>
-                    查看消费记录
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={handleDeleteCustomer}
-                  >
-                    <Trash2 size={18} className="mr-2" />
-                    删除
-                  </Button>
+                <div className="space-y-3 pt-4 border-t">
+                  {/* 第一组：主要操作 */}
+                  <div className="flex flex-col sm:flex-row justify-end gap-2">
+                    <Button onClick={startEdit} className="w-full sm:w-auto">
+                      <Edit size={18} className="mr-2" />
+                      编辑
+                    </Button>
+                    <Button onClick={() => setIsConsumptionDialogOpen(true)} className="w-full sm:w-auto">
+                      <Plus size={18} className="mr-2" />
+                      新增消费记录
+                    </Button>
+                    <Button onClick={() => viewConsumptionRecords(selectedCustomer.id)} className="w-full sm:w-auto">
+                      查看消费记录
+                    </Button>
+                  </div>
+
+                  {/* 第二组：次要操作 */}
+                  <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setIsDetailDialogOpen(false);
+                        setIsEditMode(false);
+                        setSelectedCustomer(null);
+                        resetFormData();
+                        // 关闭所有可能打开的内层对话框
+                        setIsBalanceDialogOpen(false);
+                        setIsBalanceHistoryOpen(false);
+                        setIsConsumptionDialogOpen(false);
+                      }}
+                      className="w-full sm:w-auto"
+                    >
+                      关闭
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={handleDeleteCustomer}
+                      className="w-full sm:w-auto"
+                    >
+                      <Trash2 size={18} className="mr-2" />
+                      删除
+                    </Button>
+                  </div>
                 </div>
               </>
             ) : (
@@ -1135,6 +1169,17 @@ export const CustomersPage: React.FC = () => {
           </div>
         </div>
       </Dialog>
+
+      {/* 新增消费记录对话框 */}
+      {selectedCustomer && (
+        <ConsumptionRecordForm
+          isOpen={isConsumptionDialogOpen}
+          onClose={() => setIsConsumptionDialogOpen(false)}
+          customerId={selectedCustomer.id}
+          customer={selectedCustomer}
+          onSuccess={handleConsumptionRecordAdded}
+        />
+      )}
     </div>
   );
 };
