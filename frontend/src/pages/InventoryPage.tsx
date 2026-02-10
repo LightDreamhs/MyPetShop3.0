@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import type { Product, ProductFormData } from '../types';
 
@@ -432,6 +433,19 @@ export const InventoryPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {total > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Pagination
+                currentPage={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={(newPage) => fetchProducts({ page: newPage, pageSize, search: searchTerm })}
+                onPageSizeChange={(newPageSize) => fetchProducts({ page: 1, pageSize: newPageSize, search: searchTerm })}
+                pageSizeOptions={[10, 20, 50, 100]}
+                isLoading={isLoading}
+              />
             </div>
           )}
         </CardContent>

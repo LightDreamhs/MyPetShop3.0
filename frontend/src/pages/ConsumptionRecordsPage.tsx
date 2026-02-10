@@ -6,6 +6,7 @@ import { useConsumptionStore } from '../stores/consumptionStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Pagination } from '../components/ui/Pagination';
 import { getMemberLevelLabel, getMemberLevelBgColor, getMemberLevelColor, getMemberLevelBorderColor } from '../utils/memberLevel';
 import type { ConsumptionRecordFormData } from '../types';
 import { customerApi, transactionApi } from '../services/api';
@@ -363,6 +364,27 @@ export const ConsumptionRecordsPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {total > 0 && (
+                <div className="px-6 py-4 border-t border-gray-200">
+                  <Pagination
+                    currentPage={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={(newPage) => {
+                      if (customerId) {
+                        fetchRecords(parseInt(customerId), { page: newPage, pageSize });
+                      }
+                    }}
+                    onPageSizeChange={(newPageSize) => {
+                      if (customerId) {
+                        fetchRecords(parseInt(customerId), { page: 1, pageSize: newPageSize });
+                      }
+                    }}
+                    pageSizeOptions={[10, 20, 50, 100]}
+                    isLoading={isLoading}
+                  />
                 </div>
               )}
             </CardContent>

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
+import { Pagination } from '../components/ui/Pagination';
 import { Search, Plus, Edit, Trash2, User as UserIcon } from 'lucide-react';
 import type { User, UserFormData } from '../types';
 
@@ -247,6 +248,19 @@ export const UsersPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {total > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Pagination
+                currentPage={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={(newPage) => fetchUsers({ page: newPage, pageSize, search: searchTerm })}
+                onPageSizeChange={(newPageSize) => fetchUsers({ page: 1, pageSize: newPageSize, search: searchTerm })}
+                pageSizeOptions={[10, 20, 50, 100]}
+                isLoading={isLoading}
+              />
             </div>
           )}
         </CardContent>

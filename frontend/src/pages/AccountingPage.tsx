@@ -4,6 +4,7 @@ import { transactionApi } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Calendar, TrendingUp } from 'lucide-react';
 import type { TransactionFormData, Transaction } from '../types';
 
@@ -435,6 +436,33 @@ export const AccountingPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {total > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Pagination
+                currentPage={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={(newPage) => {
+                  const params: any = { page: newPage, pageSize };
+                  if (typeFilter) params.type = typeFilter;
+                  if (searchTerm) params.search = searchTerm;
+                  if (dateFilter.startDate) params.startDate = dateFilter.startDate;
+                  if (dateFilter.endDate) params.endDate = dateFilter.endDate;
+                  fetchTransactions(params);
+                }}
+                onPageSizeChange={(newPageSize) => {
+                  const params: any = { page: 1, pageSize: newPageSize };
+                  if (typeFilter) params.type = typeFilter;
+                  if (searchTerm) params.search = searchTerm;
+                  if (dateFilter.startDate) params.startDate = dateFilter.startDate;
+                  if (dateFilter.endDate) params.endDate = dateFilter.endDate;
+                  fetchTransactions(params);
+                }}
+                pageSizeOptions={[10, 20, 50, 100]}
+                isLoading={isLoading}
+              />
             </div>
           )}
         </CardContent>

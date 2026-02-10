@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
+import { Pagination } from '../components/ui/Pagination';
 import { Search, Plus, Edit, X, Check, Trash2, Wallet, History } from 'lucide-react';
 import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
 import type { Customer, CustomerFormData, BalanceTransaction } from '../types';
@@ -14,6 +15,7 @@ export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     customers,
+    total,
     page,
     pageSize,
     isLoading,
@@ -276,6 +278,7 @@ export const CustomersPage: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCustomers.map((customer) => (
             <Card
@@ -339,6 +342,20 @@ export const CustomersPage: React.FC = () => {
             </Card>
           ))}
         </div>
+        {total > 0 && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={(newPage) => fetchCustomers({ page: newPage, pageSize, search: searchTerm })}
+              onPageSizeChange={(newPageSize) => fetchCustomers({ page: 1, pageSize: newPageSize, search: searchTerm })}
+              pageSizeOptions={[9, 18, 36, 72]}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+      </>
       )}
 
       {/* 新增客户对话框 */}
@@ -1080,55 +1097,28 @@ export const CustomersPage: React.FC = () => {
             </div>
           )}
 
-          {balanceHistoryTotal > 10 && (
-            <div className="flex justify-between items-center pt-4 border-t">
-              <span className="text-sm text-gray-500">
-                共 {balanceHistoryTotal} 条记录
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={balanceHistoryPage === 1}
-                  onClick={async () => {
-                    if (!selectedCustomer) return;
-                    const newPage = balanceHistoryPage - 1;
-                    try {
-                      const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
-                        page: newPage,
-                        pageSize: 10,
-                      });
-                      setBalanceHistory(response.data.data.list);
-                      setBalanceHistoryPage(newPage);
-                    } catch (error) {
-                      // Error handled silently
-                    }
-                  }}
-                >
-                  上一页
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={balanceHistoryPage * 10 >= balanceHistoryTotal}
-                  onClick={async () => {
-                    if (!selectedCustomer) return;
-                    const newPage = balanceHistoryPage + 1;
-                    try {
-                      const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
-                        page: newPage,
-                        pageSize: 10,
-                      });
-                      setBalanceHistory(response.data.data.list);
-                      setBalanceHistoryPage(newPage);
-                    } catch (error) {
-                      // Error handled silently
-                    }
-                  }}
-                >
-                  下一页
-                </Button>
-              </div>
+          {balanceHistoryTotal > 0 && (
+            <div className="pt-4 border-t">
+              <Pagination
+                currentPage={balanceHistoryPage}
+                pageSize={10}
+                total={balanceHistoryTotal}
+                onPageChange={async (newPage) => {
+                  if (!selectedCustomer) return;
+                  try {
+                    const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
+                      page: newPage,
+                      pageSize: 10,
+                    });
+                    setBalanceHistory(response.data.data.list);
+                    setBalanceHistoryPage(newPage);
+                  } catch (error) {
+                    // Error handled silently
+                  }
+                }}
+                isLoading={isLoading}
+                hideOnSinglePage
+              />
             </div>
           )}
 
