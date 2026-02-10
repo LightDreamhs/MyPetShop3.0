@@ -7,3 +7,4 @@ export { Dialog } from './Dialog';
 export { Badge } from './Badge';
 export { Table, TableRow, TableCell } from './Table';
 export { ImageUpload } from './ImageUpload';
+export { Pagination } from './Pagination';

@@ -61,3 +61,8 @@ deployment/init.sql
 *.sql.gz
 *.dump
 *.backup
+
+# ---------- 敏感信息文件 ----------
+*known_hosts
+*passwords.txt
+*.txt
