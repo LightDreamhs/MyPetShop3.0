@@ -127,7 +127,7 @@ public class ProductController {
             @NotBlank(message = "商品名称不能为空")
             String name,
             @NotNull(message = "价格不能为空")
-            @Min(value = 1, message = "价格必须大于0")
+            @Min(value = 0, message = "价格不能为负数")
             Long price,
             @NotNull(message = "库存不能为空")
             @Min(value = 0, message = "库存不能为负数")
@@ -145,7 +145,7 @@ public class ProductController {
             @NotBlank(message = "商品名称不能为空")
             String name,
             @NotNull(message = "价格不能为空")
-            @Min(value = 1, message = "价格必须大于0")
+            @Min(value = 0, message = "价格不能为负数")
             Long price,
             @NotNull(message = "库存不能为空")
             @Min(value = 0, message = "库存不能为负数")
