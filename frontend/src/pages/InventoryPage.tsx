@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useProductStore } from '../stores/productStore';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
@@ -7,8 +7,12 @@ import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import type { Product, ProductFormData } from '../types';
+import { Plus, Search, Edit, Trash2, ShoppingCart, X } from 'lucide-react';
+import type { Product, ProductFormData, SaleItem } from '../types';
+import { saleApi } from '../services/api';
+import { DEFAULT_PRODUCT_IMAGE } from '../constants';
+import { showErrorAlert } from '../utils/errorHandler';
+import { preventWheelChange } from '../utils/inputHandlers';
 
 export const InventoryPage: React.FC = () => {
   const { isAdmin } = useAuthStore();
@@ -34,15 +38,29 @@ export const InventoryPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [stockValue, setStockValue] = useState(0);
 
+  // 散客销售相关状态
+  const [isSaleDialogOpen, setIsSaleDialogOpen] = useState(false);
+  const [cartItems, setCartItems] = useState<SaleItem[]>([]);
+  const [customerName, setCustomerName] = useState('');
+  const [saleDate, setSaleDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    // datetime-local 格式: yyyy-MM-ddTHH:mm
+    return now.toISOString().slice(0, 16);
+  });
+  const [manualTotalAmount, setManualTotalAmount] = useState('');
+  const [recordToAccounting, setRecordToAccounting] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  // 购物车单价输入值（索引 -> 输入字符串）
+  const [unitPriceInputValues, setUnitPriceInputValues] = useState<Record<number, string>>({});
+
   // 价格验证错误和输入框显示值
   const [priceError, setPriceError] = useState('');
   const [priceInputValue, setPriceInputValue] = useState('');
 
   // 库存数量输入框显示值
   const [stockInputValue, setStockInputValue] = useState('');
-
-  // 默认商品图片
-  const DEFAULT_PRODUCT_IMAGE = 'https://placehold.co/400x400/e2e8f0/64748b?text=No+Image';
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
@@ -52,13 +70,22 @@ export const InventoryPage: React.FC = () => {
     description: '',
   });
 
+  // 初始加载
   useEffect(() => {
     fetchProducts({ page: 1, pageSize: 10, search: searchTerm });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSearch = () => {
+  // 打开销售对话框时获取商品列表（限制数量避免性能问题）
+  useEffect(() => {
+    if (isSaleDialogOpen) {
+      fetchProducts({ page: 1, pageSize: 100 });
+    }
+  }, [isSaleDialogOpen, fetchProducts]);
+
+  const handleSearch = useCallback(() => {
     fetchProducts({ page: 1, pageSize: 10, search: searchTerm });
-  };
+  }, [searchTerm, fetchProducts]);
 
   // 验证价格输入（宽松验证，允许输入过程中的中间状态）
   const validatePriceInput = (value: string): boolean => {
@@ -108,7 +135,8 @@ export const InventoryPage: React.FC = () => {
     }
 
     const numValue = parseFloat(priceInputValue);
-    if (!isNaN(numValue) && numValue > 0) {
+    // 允许 0 值（赠品/样品场景）
+    if (!isNaN(numValue) && numValue >= 0) {
       const priceInCents = Math.round(numValue * 100);
       setFormData({ ...formData, price: priceInCents });
       setPriceInputValue(numValue.toFixed(2));
@@ -139,12 +167,6 @@ export const InventoryPage: React.FC = () => {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 验证价格
-    if (formData.price <= 0) {
-      setPriceError('请输入有效的价格');
-      return;
-    }
-
     try {
       // 如果没有提供图片URL，使用默认图片
       const productData = {
@@ -172,12 +194,6 @@ export const InventoryPage: React.FC = () => {
   const handleEditProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
-
-    // 验证价格
-    if (formData.price <= 0) {
-      setPriceError('请输入有效的价格');
-      return;
-    }
 
     try {
       // 如果没有提供图片URL，使用默认图片
@@ -223,8 +239,21 @@ export const InventoryPage: React.FC = () => {
       try {
         await deleteProduct(id);
         fetchProducts({ page, pageSize, search: searchTerm });
-      } catch (error) {
-        // Error handled by store
+      } catch (error: any) {
+        // 检测是否是外键约束错误（商品有关联的消费记录/销售记录）
+        const errorMessage = error.response?.data?.message || '';
+        const isForeignKeyError =
+          errorMessage.includes('foreign key constraint') ||
+          errorMessage.includes('Cannot delete') ||
+          errorMessage.includes('foreign key') ||
+          errorMessage.includes('constraint') ||
+          error.response?.status === 500;
+
+        if (isForeignKeyError) {
+          alert('无法删除该商品！\n\n该商品存在关联的消费记录或销售记录。\n请先删除相关的消费记录和销售记录后再试。');
+        } else {
+          showErrorAlert(error, '删除商品失败');
+        }
       }
     }
   };
@@ -264,6 +293,142 @@ export const InventoryPage: React.FC = () => {
     }
   };
 
+  // 散客销售：添加商品到购物车
+  const addProductToCart = (productId: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    // 检查是否已经在购物车中
+    const exists = cartItems.some(item => item.productId === productId);
+    if (exists) {
+      alert('该商品已在购物车中');
+      return;
+    }
+
+    setCartItems([...cartItems, {
+      productId: product.id,
+      productName: product.name,
+      quantity: 1,
+      unitPrice: Math.round((product.price ?? 0) * 100), // 自动填充进价
+      subtotal: 0
+    }]);
+    setShowProductDropdown(false);
+    setProductSearchTerm('');
+  };
+
+  // 散客销售：更新购物车项目
+  const updateCartItem = (index: number, field: 'quantity' | 'unitPrice', value: number) => {
+    const updatedItems = [...cartItems];
+    if (field === 'quantity') {
+      updatedItems[index].quantity = value;
+      updatedItems[index].subtotal = updatedItems[index].unitPrice * value;
+    } else {
+      updatedItems[index].unitPrice = value;
+      updatedItems[index].subtotal = value * updatedItems[index].quantity;
+    }
+    setCartItems(updatedItems);
+
+    // 自动计算总价
+    const newTotal = updatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    setManualTotalAmount((newTotal / 100).toFixed(2));
+  };
+
+  // 散客销售：删除购物车项目
+  const removeCartItem = (index: number) => {
+    setCartItems(cartItems.filter((_, i) => i !== index));
+  };
+
+  // 散客销售：提交订单
+  const handleWalkInSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (cartItems.length === 0) {
+      alert('请至少添加一件商品');
+      return;
+    }
+
+    const totalAmountInCents = Math.round(parseFloat(manualTotalAmount) * 100);
+    if (isNaN(totalAmountInCents) || totalAmountInCents <= 0) {
+      alert('请输入有效的销售总价');
+      return;
+    }
+
+    try {
+      // 将 datetime-local 格式 (yyyy-MM-ddTHH:mm) 转换为 MySQL DATETIME 格式 (yyyy-MM-dd HH:mm:ss)
+      const formatSaleDateForDB = (dateStr: string): string => {
+        // dateStr 格式: "2026-02-11T23:56"
+        const parts = dateStr.split('T');
+        if (parts.length !== 2) {
+          console.error('Invalid date format:', dateStr);
+          return dateStr;
+        }
+        const [datePart, timePart] = parts;
+        // timePart 格式: "23:56"
+        const result = `${datePart} ${timePart}:00`;
+        console.log('Date conversion:', dateStr, '->', result);
+        return result;
+      };
+
+      await saleApi.createSale({
+        customerName,
+        items: cartItems,
+        totalAmount: totalAmountInCents,
+        saleDate: formatSaleDateForDB(saleDate),
+        recordToAccounting,
+      });
+
+      setIsSaleDialogOpen(false);
+      setCartItems([]);
+      setCustomerName('');
+      setManualTotalAmount('');
+      setRecordToAccounting(false);
+      setUnitPriceInputValues({});
+
+      // 重置日期为当前时间
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      setSaleDate(now.toISOString().slice(0, 16));
+
+      // 刷新商品列表
+      fetchProducts({ page, pageSize, search: searchTerm });
+      alert('开单成功！');
+    } catch (error: unknown) {
+      showErrorAlert(error, '开单失败，请重试');
+    }
+  };
+
+  // 散客销售：关闭对话框时重置状态
+  const closeSaleDialog = () => {
+    setIsSaleDialogOpen(false);
+    setCartItems([]);
+    setCustomerName('');
+    setManualTotalAmount('');
+    setRecordToAccounting(false);
+    setShowProductDropdown(false);
+    setProductSearchTerm('');
+    setUnitPriceInputValues({});
+    // 重置日期为当前时间
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    setSaleDate(now.toISOString().slice(0, 16));
+  };
+
+  // 点击外部关闭商品下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const dropdown = document.getElementById('product-dropdown');
+      if (dropdown && !dropdown.contains(target)) {
+        setShowProductDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="p-8">
       {/* 页面标题 */}
@@ -290,12 +455,18 @@ export const InventoryPage: React.FC = () => {
               </div>
               <Button onClick={handleSearch}>搜索</Button>
             </div>
-            {isAdmin() && (
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus size={20} className="mr-2" />
-                新增商品
+            <div className="flex gap-3">
+              <Button onClick={() => setIsSaleDialogOpen(true)}>
+                <ShoppingCart size={20} className="mr-2" />
+                开一单
               </Button>
-            )}
+              {isAdmin() && (
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus size={20} className="mr-2" />
+                  新增商品
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -690,6 +861,226 @@ export const InventoryPage: React.FC = () => {
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? '更新中...' : '确认修改'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* 开一单对话框 */}
+      <Dialog
+        isOpen={isSaleDialogOpen}
+        onClose={closeSaleDialog}
+        title="开一单 - 散客销售"
+      >
+        <form onSubmit={handleWalkInSale} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+          {/* 消费者姓名 */}
+          <Input
+            label="消费者姓名"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="请输入消费者姓名"
+            required
+          />
+
+          {/* 商品选择 */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">添加商品</label>
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={productSearchTerm}
+                onChange={(e) => setProductSearchTerm(e.target.value)}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder="搜索或选择商品"
+                autoComplete="off"
+              />
+              {showProductDropdown && (
+                <div id="product-dropdown" className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {productSearchTerm === '' && (
+                    <div className="px-3 py-2 text-sm text-gray-500 border-b">
+                      请输入商品名称搜索，或从下方列表选择
+                    </div>
+                  )}
+                  {products.filter(p => {
+                    const matchesSearch = p.name.toLowerCase().includes(productSearchTerm.toLowerCase());
+                    const inStock = p.stock > 0;
+                    return matchesSearch && inStock;
+                  }).map(product => (
+                    <div
+                      key={product.id}
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
+                      onClick={() => addProductToCart(product.id)}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500">
+                          库存: {product.stock} | 单价: ¥{((product.price ?? 0) / 100).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-green-600 text-sm">+</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 购物车列表 */}
+          {cartItems.length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">商品</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">数量</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">单价(元)</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">小计(元)</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {cartItems.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">{item.productName}</td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.quantity === 0 ? '' : item.quantity}
+                          onChange={(e) => updateCartItem(index, 'quantity', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && e.currentTarget.value === (item.quantity === 0 ? '' : item.quantity.toString())) {
+                              e.preventDefault();
+                              e.currentTarget.value = '';
+                              updateCartItem(index, 'quantity', 0);
+                            }
+                          }}
+                          onWheel={preventWheelChange}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="数量"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={unitPriceInputValues[index] ?? (item.unitPrice === 0 ? '' : (item.unitPrice / 100).toFixed(2))}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // 允许输入数字和小数点
+                            if (/^\d*\.?\d{0,2}$/.test(value) || value === '') {
+                              setUnitPriceInputValues(prev => ({ ...prev, [index]: value }));
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value;
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue) && numValue > 0) {
+                              const priceInCents = Math.round(numValue * 100);
+                              updateCartItem(index, 'unitPrice', priceInCents);
+                              setUnitPriceInputValues(prev => ({ ...prev, [index]: numValue.toFixed(2) }));
+                            } else if (value === '' || isNaN(numValue)) {
+                              updateCartItem(index, 'unitPrice', 0);
+                              setUnitPriceInputValues(prev => {
+                                const newValues = { ...prev };
+                                delete newValues[index];
+                                return newValues;
+                              });
+                            }
+                          }}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:none] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-sm">¥{(item.subtotal / 100).toFixed(2)}</td>
+                      <td className="px-4 py-2">
+                        <button
+                          type="button"
+                          onClick={() => removeCartItem(index)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <X size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 计算总价 */}
+          {cartItems.length > 0 && (
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">计算总价：</span>
+                <span className="text-lg font-bold text-gray-900">
+                  ¥{cartItems.reduce((sum, item) => sum + item.subtotal, 0) / 100}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 手动输入总价 */}
+          <Input
+            label="销售总价（元）*"
+            type="number"
+            step="0.01"
+            min="0"
+            value={manualTotalAmount}
+            onChange={(e) => setManualTotalAmount(e.target.value)}
+            placeholder="手动输入实际交易总价"
+            required
+          />
+
+          {/* 销售时间 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">销售时间</label>
+            <input
+              type="datetime-local"
+              value={saleDate}
+              onChange={(e) => setSaleDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          {/* 是否记账 */}
+          <div className={`border-2 rounded-lg p-4 ${
+            recordToAccounting
+              ? 'border-green-500 bg-green-50'
+              : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+          }`}>
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="recordToAccountingWalkIn"
+                checked={recordToAccounting}
+                onChange={(e) => setRecordToAccounting(e.target.checked)}
+                className="w-5 h-5 mt-0.5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+              />
+              <label htmlFor="recordToAccountingWalkIn" className="flex-1 cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <span className={`font-semibold ${recordToAccounting ? 'text-green-700' : 'text-gray-900'}`}>
+                    📝 记录到财务记账
+                  </span>
+                </div>
+                <p className={`text-sm mt-1 ${recordToAccounting ? 'text-green-700' : 'text-gray-600'}`}>
+                  {recordToAccounting
+                    ? '✅ 此销售记录将同时添加到财务记账页面'
+                    : 'ℹ️ 勾选后，此销售记录将同时添加到财务记账页面'}
+                </p>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={closeSaleDialog}>
+              取消
+            </Button>
+            <Button type="submit" disabled={cartItems.length === 0}>
+              确认开单
             </Button>
           </div>
         </form>
