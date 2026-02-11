@@ -14,10 +14,14 @@ import type {
   Transaction,
   TransactionFormData,
   TransactionStatistics,
+  MonthlyStatistics,
   UploadResponse,
   BalanceTransaction,
   BalanceRechargeRequest,
   BalanceDeductRequest,
+  SaleFormData,
+  SaleResponse,
+  Sale,
 } from '../types';
 
 // ==================== 认证模块 ====================
@@ -174,6 +178,10 @@ export const transactionApi = {
   // 获取财务统计
   getStatistics: (params?: { startDate?: string; endDate?: string }) =>
     axiosInstance.get<ApiResponse<TransactionStatistics>>('/transactions/statistics', { params }),
+
+  // 获取按月统计的收支情况
+  getMonthlyStatistics: (params?: { year?: number }) =>
+    axiosInstance.get<ApiResponse<MonthlyStatistics[]>>('/transactions/monthly-statistics', { params }),
 };
 
 // ==================== 文件上传模块 ====================
@@ -189,4 +197,20 @@ export const uploadApi = {
       },
     });
   },
+};
+
+// ==================== 商品销售模块 ====================
+
+export const saleApi = {
+  // 创建销售（散客和会员通用）
+  createSale: (data: SaleFormData) =>
+    axiosInstance.post<ApiResponse<SaleResponse>>('/sales', data),
+
+  // 获取销售记录列表
+  getSales: (params?: { page?: number; pageSize?: number; startDate?: string; endDate?: string }) =>
+    axiosInstance.get<ApiResponse<PaginatedResponse<Sale>>>('/sales', { params }),
+
+  // 获取销售记录详情
+  getSale: (id: number) =>
+    axiosInstance.get<ApiResponse<Sale>>(`/sales/${id}`),
 };

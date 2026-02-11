@@ -1,5 +1,6 @@
 package com.petshop.backend.mapper;
 
+import com.petshop.backend.dto.MonthlyStatistics;
 import com.petshop.backend.entity.Transaction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -56,4 +57,9 @@ public interface TransactionMapper {
      */
     Map<String, Object> getStatistics(@Param("startDate") String startDate,
                                      @Param("endDate") String endDate);
+
+    /**
+     * 查询按月统计的收支情况
+     */
+    List<MonthlyStatistics> findMonthlyStatistics(@Param("year") Integer year);
 }

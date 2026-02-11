@@ -1,5 +1,6 @@
 package com.petshop.backend.controller;
 
+import com.petshop.backend.dto.MonthlyStatistics;
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.dto.Result;
 import com.petshop.backend.dto.TransactionStatistics;
@@ -94,6 +95,16 @@ public class TransactionController {
             @RequestParam(required = false) String endDate) {
         TransactionStatistics stats = transactionService.getStatistics(startDate, endDate);
         return Result.success(stats);
+    }
+
+    /**
+     * 获取按月统计的收支情况
+     */
+    @GetMapping("/monthly-statistics")
+    public Result<java.util.List<MonthlyStatistics>> getMonthlyStatistics(
+            @RequestParam(required = false) Integer year) {
+        java.util.List<MonthlyStatistics> statistics = transactionService.getMonthlyStatistics(year);
+        return Result.success("查询成功", statistics);
     }
 
     /**

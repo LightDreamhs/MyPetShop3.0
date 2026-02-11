@@ -1,7 +1,10 @@
 package com.petshop.backend.service;
 
+import com.petshop.backend.dto.MonthlyStatistics;
 import com.petshop.backend.dto.TransactionStatistics;
 import com.petshop.backend.entity.Transaction;
+
+import java.util.List;
 
 /**
  * 财务记录服务接口
@@ -37,4 +40,9 @@ public interface TransactionService {
      * 获取财务统计
      */
     TransactionStatistics getStatistics(String startDate, String endDate);
+
+    /**
+     * 获取按月统计的收支情况
+     */
+    List<MonthlyStatistics> getMonthlyStatistics(Integer year);
 }

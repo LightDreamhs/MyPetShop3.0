@@ -1,5 +1,6 @@
 package com.petshop.backend.service.impl;
 
+import com.petshop.backend.dto.MonthlyStatistics;
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.dto.TransactionStatistics;
 import com.petshop.backend.entity.Transaction;
@@ -9,6 +10,7 @@ import com.petshop.backend.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Year;
 import java.util.List;
 import java.util.Map;
 
@@ -83,5 +85,13 @@ public class TransactionServiceImpl implements TransactionService {
         Integer expenseCount = ((Number) stats.getOrDefault("expenseCount", 0)).intValue();
 
         return new TransactionStatistics(totalIncome, totalExpense, netIncome, incomeCount, expenseCount);
+    }
+
+    @Override
+    public List<MonthlyStatistics> getMonthlyStatistics(Integer year) {
+        // 如果未指定年份，使用当前年份
+        int targetYear = (year != null) ? year : Year.now().getValue();
+
+        return transactionMapper.findMonthlyStatistics(targetYear);
     }
 }
