@@ -49,7 +49,7 @@ public class TransactionController {
      * 创建财务记录
      */
     @PostMapping
-    public Result<Transaction> create(@Valid @RequestBody TransactionCreateRequest request) {
+    public Result<Transaction> create(@Valid @RequestBody TransactionRequest request) {
         Transaction transaction = new Transaction();
         transaction.setType(request.type());
         transaction.setAmount(request.amount());
@@ -66,7 +66,7 @@ public class TransactionController {
     @PutMapping("/{id}")
     public Result<Transaction> update(
             @PathVariable Long id,
-            @Valid @RequestBody TransactionUpdateRequest request) {
+            @Valid @RequestBody TransactionRequest request) {
         Transaction transaction = new Transaction();
         transaction.setType(request.type());
         transaction.setAmount(request.amount());
@@ -108,26 +108,9 @@ public class TransactionController {
     }
 
     /**
-     * 创建财务记录请求DTO
+     * 财务记录请求DTO
      */
-    public record TransactionCreateRequest(
-            @NotBlank(message = "类型不能为空")
-            @Pattern(regexp = "^(income|expense)$", message = "类型必须是income或expense")
-            String type,
-            @NotNull(message = "金额不能为空")
-            @Min(value = 1, message = "金额必须大于0")
-            Long amount,
-            @NotBlank(message = "描述不能为空")
-            String description,
-            @NotBlank(message = "日期不能为空")
-            String date
-    ) {
-    }
-
-    /**
-     * 更新财务记录请求DTO
-     */
-    public record TransactionUpdateRequest(
+    public record TransactionRequest(
             @NotBlank(message = "类型不能为空")
             @Pattern(regexp = "^(income|expense)$", message = "类型必须是income或expense")
             String type,

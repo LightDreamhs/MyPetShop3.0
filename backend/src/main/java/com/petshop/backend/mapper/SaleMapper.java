@@ -31,6 +31,11 @@ public interface SaleMapper {
     Sale findById(Long id);
 
     /**
+     * 根据ID查询销售记录（包含明细项）
+     */
+    Sale findWithItemsById(Long id);
+
+    /**
      * 创建销售记录
      */
     int insert(Sale sale);

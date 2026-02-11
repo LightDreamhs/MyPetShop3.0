@@ -9,6 +9,7 @@ import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.BalanceTransactionMapper;
 import com.petshop.backend.mapper.CustomerMapper;
 import com.petshop.backend.service.CustomerService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public PageResult<Customer> findByPage(Integer page, Integer pageSize, String search, Boolean isMember, Integer memberLevel) {
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<Customer> list = customerMapper.findByPage(offset, pageSize, search, isMember, memberLevel);
@@ -163,7 +164,7 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<BalanceTransaction> list = balanceTransactionMapper.findByCustomerId(id, offset, pageSize);

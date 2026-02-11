@@ -5,6 +5,7 @@ import com.petshop.backend.entity.Product;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.ProductMapper;
 import com.petshop.backend.service.ProductService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +23,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public PageResult<Product> findByPage(Integer page, Integer pageSize, String search) {
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<Product> list = productMapper.findByPage(offset, pageSize, search);

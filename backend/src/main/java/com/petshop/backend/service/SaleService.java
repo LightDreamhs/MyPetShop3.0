@@ -13,7 +13,7 @@ public interface SaleService {
     /**
      * 创建销售记录（散客和会员通用）
      */
-    SaleResponse createSale(SaleCreateRequest request);
+    SaleResponse createSale(SaleCreateRequest request, Long operatorId);
 
     /**
      * 分页查询销售记录

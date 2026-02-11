@@ -6,6 +6,7 @@ import com.petshop.backend.enums.Role;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.UserMapper;
 import com.petshop.backend.service.UserService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +33,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public PageResult<User> findByPage(Integer page, Integer pageSize, String search) {
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<User> list = userMapper.findByPage(offset, pageSize, search);

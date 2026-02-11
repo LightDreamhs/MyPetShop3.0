@@ -7,6 +7,7 @@ import com.petshop.backend.dto.Result;
 import com.petshop.backend.entity.BalanceTransaction;
 import com.petshop.backend.entity.Customer;
 import com.petshop.backend.service.CustomerService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -53,7 +54,7 @@ public class CustomerController {
      * 创建客户
      */
     @PostMapping
-    public Result<Customer> create(@Valid @RequestBody CustomerCreateRequest request) {
+    public Result<Customer> create(@Valid @RequestBody CustomerRequest request) {
         Customer customer = new Customer();
         customer.setPetName(request.petName());
         customer.setOwnerName(request.ownerName());
@@ -76,7 +77,7 @@ public class CustomerController {
      * 更新客户
      */
     @PutMapping("/{id}")
-    public Result<Customer> update(@PathVariable Long id, @Valid @RequestBody CustomerUpdateRequest request) {
+    public Result<Customer> update(@PathVariable Long id, @Valid @RequestBody CustomerRequest request) {
         Customer customer = new Customer();
         customer.setPetName(request.petName());
         customer.setOwnerName(request.ownerName());
@@ -110,9 +111,9 @@ public class CustomerController {
     @PostMapping("/{id}/balance/recharge")
     public Result<Customer> recharge(
             @PathVariable Long id,
-            @Valid @RequestBody BalanceRechargeRequest request) {
-        // TODO: 从 JWT 中获取操作人ID
-        Long operatorId = 1L;
+            @Valid @RequestBody BalanceRechargeRequest request,
+            HttpServletRequest httpRequest) {
+        Long operatorId = (Long) httpRequest.getAttribute("userId");
         Customer customer = customerService.recharge(id, request, operatorId);
         return Result.success("充值成功", customer);
     }
@@ -123,9 +124,9 @@ public class CustomerController {
     @PostMapping("/{id}/balance/deduct")
     public Result<Customer> deduct(
             @PathVariable Long id,
-            @Valid @RequestBody BalanceDeductRequest request) {
-        // TODO: 从 JWT 中获取操作人ID
-        Long operatorId = 1L;
+            @Valid @RequestBody BalanceDeductRequest request,
+            HttpServletRequest httpRequest) {
+        Long operatorId = (Long) httpRequest.getAttribute("userId");
         Customer customer = customerService.deduct(id, request, operatorId);
         return Result.success("扣减成功", customer);
     }
@@ -143,33 +144,9 @@ public class CustomerController {
     }
 
     /**
-     * 创建客户请求DTO
+     * 客户请求DTO
      */
-    public record CustomerCreateRequest(
-            @NotBlank(message = "宠物名称不能为空")
-            String petName,
-            @NotBlank(message = "主人姓名不能为空")
-            String ownerName,
-            @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "电话号码格式不正确")
-            String phone,
-            Boolean isMember,
-            @NotNull(message = "会员级别不能为空")
-            @Min(value = 0, message = "会员级别不能小于0")
-            @Max(value = 4, message = "会员级别不能大于4")
-            Integer memberLevel,
-            String avatar,
-            String petType,
-            String breed,
-            Integer age,
-            String gender,
-            String notes
-    ) {
-    }
-
-    /**
-     * 更新客户请求DTO
-     */
-    public record CustomerUpdateRequest(
+    public record CustomerRequest(
             @NotBlank(message = "宠物名称不能为空")
             String petName,
             @NotBlank(message = "主人姓名不能为空")

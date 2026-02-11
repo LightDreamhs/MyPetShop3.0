@@ -14,8 +14,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
  * 商品控制器
  */
@@ -69,7 +67,7 @@ public class ProductController {
      */
     @PostMapping
     @RequireRole(Role.ADMIN)
-    public Result<Product> create(@Valid @RequestBody ProductCreateRequest request) {
+    public Result<Product> create(@Valid @RequestBody ProductRequest request) {
         Product product = new Product();
         product.setName(request.name());
         product.setPrice(request.price());
@@ -86,7 +84,7 @@ public class ProductController {
      */
     @PutMapping("/{id}")
     @RequireRole(Role.ADMIN)
-    public Result<Product> update(@PathVariable Long id, @Valid @RequestBody ProductUpdateRequest request) {
+    public Result<Product> update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
         Product product = new Product();
         product.setName(request.name());
         product.setPrice(request.price());
@@ -121,27 +119,9 @@ public class ProductController {
     }
 
     /**
-     * 创建商品请求DTO
+     * 商品请求DTO
      */
-    public record ProductCreateRequest(
-            @NotBlank(message = "商品名称不能为空")
-            String name,
-            @NotNull(message = "价格不能为空")
-            @Min(value = 0, message = "价格不能为负数")
-            Long price,
-            @NotNull(message = "库存不能为空")
-            @Min(value = 0, message = "库存不能为负数")
-            Integer stock,
-            @NotBlank(message = "商品图片不能为空")
-            String imageUrl,
-            String description
-    ) {
-    }
-
-    /**
-     * 更新商品请求DTO
-     */
-    public record ProductUpdateRequest(
+    public record ProductRequest(
             @NotBlank(message = "商品名称不能为空")
             String name,
             @NotNull(message = "价格不能为空")

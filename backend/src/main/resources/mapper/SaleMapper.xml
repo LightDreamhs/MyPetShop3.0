@@ -16,6 +16,19 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
+    <resultMap id="SaleWithItemsResultMap" type="com.petshop.backend.entity.Sale" extends="BaseResultMap">
+        <collection property="items" ofType="com.petshop.backend.entity.SaleItem">
+            <id column="item_id" property="id"/>
+            <result column="item_sale_id" property="saleId"/>
+            <result column="item_product_id" property="productId"/>
+            <result column="item_product_name" property="productName"/>
+            <result column="item_quantity" property="quantity"/>
+            <result column="item_unit_price" property="unitPrice"/>
+            <result column="item_subtotal" property="subtotal"/>
+            <result column="item_created_at" property="createdAt"/>
+        </collection>
+    </resultMap>
+
     <select id="findByPage" resultMap="BaseResultMap">
         SELECT id, customer_id, customer_name, total_amount, sale_date,
                recorded_to_accounting, transaction_id, paid_with_balance,
@@ -52,6 +65,19 @@
                created_at, updated_at
         FROM sales
         WHERE id = #{id}
+    </select>
+
+    <select id="findWithItemsById" resultMap="SaleWithItemsResultMap">
+        SELECT s.id, s.customer_id, s.customer_name, s.total_amount, s.sale_date,
+               s.recorded_to_accounting, s.transaction_id, s.paid_with_balance,
+               s.created_at, s.updated_at,
+               si.id AS item_id, si.sale_id AS item_sale_id, si.product_id AS item_product_id,
+               si.product_name AS item_product_name, si.quantity AS item_quantity,
+               si.unit_price AS item_unit_price, si.subtotal AS item_subtotal,
+               si.created_at AS item_created_at
+        FROM sales s
+        LEFT JOIN sale_items si ON s.id = si.sale_id
+        WHERE s.id = #{id}
     </select>
 
     <insert id="insert" parameterType="com.petshop.backend.entity.Sale" useGeneratedKeys="true" keyProperty="id">
