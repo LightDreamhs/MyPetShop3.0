@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { preventWheelChange } from '../../utils/inputHandlers';
 
 export interface PaginationProps {
   currentPage: number;
@@ -30,12 +31,13 @@ export const Pagination: React.FC<PaginationProps> = ({
 }) => {
   const totalPages = Math.ceil(total / pageSize);
 
+  // 所有 hooks 必须在条件返回之前调用
+  const [jumpPage, setJumpPage] = useState<string>('');
+
   // 单页自动隐藏
   if (hideOnSinglePage && totalPages <= 1) {
     return null;
   }
-
-  const [jumpPage, setJumpPage] = useState<string>('');
 
   // 智能页码显示算法
   const getPageNumbers = (): (number | string)[] => {
@@ -201,6 +203,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               value={jumpPage}
               onChange={(e) => setJumpPage(e.target.value)}
               onKeyDown={handleKeyDown}
+              onWheel={preventWheelChange}
               disabled={isLoading}
               placeholder="页码"
               className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"

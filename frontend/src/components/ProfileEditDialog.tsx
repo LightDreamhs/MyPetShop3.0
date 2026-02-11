@@ -5,7 +5,7 @@ import { Input } from './ui/Input';
 import { ImageUpload } from './ui/ImageUpload';
 import { Button } from './ui/Button';
 import { userApi } from '../services/api';
-import type { User, ProfileFormData } from '../types';
+import type { User, ProfileFormData, UserFormData } from '../types';
 
 interface ProfileEditDialogProps {
   isOpen: boolean;
@@ -65,12 +65,13 @@ export const ProfileEditDialog: React.FC<ProfileEditDialogProps> = ({
         nickname: formData.nickname.trim(),
         avatar: formData.avatar,
       };
-      await userApi.updateUser(user.id, updateData as any);
+      await userApi.updateUser(user.id, updateData as UserFormData);
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('更新个人信息失败:', err);
-      setError(err.response?.data?.message || '更新失败，请重试');
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || '更新失败，请重试';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
