@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 // 创建 axios 实例
 const axiosInstance = axios.create({
@@ -11,7 +11,7 @@ const axiosInstance = axios.create({
 
 // 请求拦截器 - 添加 token
 axiosInstance.interceptors.request.use(
-  (config: any) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('access_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;

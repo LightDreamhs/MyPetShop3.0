@@ -57,7 +57,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleProfileUpdateSuccess = async () => {
     try {
       await getCurrentUser();
-    } catch (error) {
+    } catch {
       // Error handled by authStore
     }
   };
