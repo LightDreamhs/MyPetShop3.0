@@ -1,12 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTransactionStore } from '../stores/transactionStore';
 import { transactionApi } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Pagination } from '../components/ui/Pagination';
-import { Plus, Search, Calendar, TrendingUp } from 'lucide-react';
-import type { TransactionFormData, Transaction } from '../types';
+import { Plus, Search, Calendar, TrendingUp, BarChart3 } from 'lucide-react';
+import type { TransactionFormData, Transaction, MonthlyStatistics } from '../types';
+import { getCurrentLocalDateTime } from '../utils/dateFormat';
+
+// 查询参数类型
+interface TransactionQueryParams {
+  page: number;
+  pageSize: number;
+  type?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
 
 export const AccountingPage: React.FC = () => {
   const {
@@ -28,6 +39,10 @@ export const AccountingPage: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDateFilterDialogOpen, setIsDateFilterDialogOpen] = useState(false);
   const [isNetIncomeDialogOpen, setIsNetIncomeDialogOpen] = useState(false);
+  const [isMonthlyStatsDialogOpen, setIsMonthlyStatsDialogOpen] = useState(false);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStatistics[]>([]);
+  const [statsYear, setStatsYear] = useState(new Date().getFullYear());
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // 新增状态：搜索、日期筛选、净收入计算
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,15 +59,12 @@ export const AccountingPage: React.FC = () => {
     type: 'income',
     amount: 0,
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getCurrentLocalDateTime(),
   });
 
-  useEffect(() => {
-    loadData();
-  }, [page, typeFilter]);
-
-  const loadData = () => {
-    const params: any = { page, pageSize };
+  // 使用 useCallback 优化 loadData，避免依赖项警告
+  const loadData = useCallback(() => {
+    const params: TransactionQueryParams = { page, pageSize };
     if (typeFilter) params.type = typeFilter;
     if (searchTerm) params.search = searchTerm;
     if (dateFilter.startDate) params.startDate = dateFilter.startDate;
@@ -62,7 +74,11 @@ export const AccountingPage: React.FC = () => {
     if (!dateFilter.startDate && !dateFilter.endDate) {
       fetchStatistics();
     }
-  };
+  }, [page, pageSize, typeFilter, searchTerm, dateFilter, fetchTransactions, fetchStatistics]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // 按描述搜索
   const handleSearchByDescription = () => {
@@ -71,11 +87,15 @@ export const AccountingPage: React.FC = () => {
 
   // 按日期筛选
   const handleFilterByDate = () => {
+    // 为日期添加时间部分，确保包含当天的数据
+    const startDateWithTime = dateFilter.startDate ? `${dateFilter.startDate} 00:00:00` : undefined;
+    const endDateWithTime = dateFilter.endDate ? `${dateFilter.endDate} 23:59:59` : undefined;
+
     fetchTransactions({
       page: 1,
       pageSize,
-      startDate: dateFilter.startDate || undefined,
-      endDate: dateFilter.endDate || undefined,
+      startDate: startDateWithTime,
+      endDate: endDateWithTime,
     });
     setIsDateFilterDialogOpen(false);
   };
@@ -88,16 +108,34 @@ export const AccountingPage: React.FC = () => {
     setNetIncomeDays(validDays);
 
     // 计算日期范围
+    // 重要：使用本地时间格式，避免时区问题
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    };
+
     const today = new Date();
-    const endDate = today.toISOString().split('T')[0];
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);  // 今天最后一刻
+
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() - validDays + 1);
-    const startDateStr = startDate.toISOString().split('T')[0];
+    startDate.setDate(today.getDate() - validDays);
+    startDate.setHours(0, 0, 0, 0);  // N天前第一刻
+
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(todayEnd);
+
+    console.log('统计日期范围:', startDateStr, '至', endDateStr);
 
     try {
       const response = await transactionApi.getStatistics({
         startDate: startDateStr,
-        endDate
+        endDate: endDateStr
       });
       const stats = response.data.data;
       setNetIncomeResult({
@@ -115,6 +153,19 @@ export const AccountingPage: React.FC = () => {
     setDateFilter({ startDate: '', endDate: '' });
     fetchTransactions({ page: 1, pageSize });
     fetchStatistics();
+  };
+
+  // 获取月度统计数据
+  const fetchMonthlyStats = async (year: number) => {
+    setIsLoadingStats(true);
+    try {
+      const response = await transactionApi.getMonthlyStatistics({ year });
+      setMonthlyStats(response.data.data);
+    } catch (error) {
+      console.error('获取月度统计失败:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
   };
 
   // 验证金额输入（宽松验证，允许输入过程中的中间状态）
@@ -185,12 +236,12 @@ export const AccountingPage: React.FC = () => {
         type: 'income',
         amount: 0,
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getCurrentLocalDateTime(),
       });
       setAmountError('');
       setAmountInputValue('');
       loadData();
-    } catch (error) {
+    } catch {
       // Error handled by store
     }
   };
@@ -200,7 +251,7 @@ export const AccountingPage: React.FC = () => {
       try {
         await deleteTransaction(id);
         loadData();
-      } catch (error) {
+      } catch {
         // Error handled by store
       }
     }
@@ -333,6 +384,16 @@ export const AccountingPage: React.FC = () => {
               <div className="flex-1"></div>
               <Button
                 variant="secondary"
+                onClick={() => {
+                  setIsMonthlyStatsDialogOpen(true);
+                  fetchMonthlyStats(statsYear);
+                }}
+              >
+                <BarChart3 size={20} className="mr-2" />
+                查看收支情况
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => setIsNetIncomeDialogOpen(true)}
               >
                 <TrendingUp size={20} className="mr-2" />
@@ -384,7 +445,7 @@ export const AccountingPage: React.FC = () => {
                   {transactions.map((transaction: Transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(transaction.date).toLocaleDateString('zh-CN')}
+                        {new Date(transaction.date).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {transaction.type === 'income' ? (
@@ -445,7 +506,7 @@ export const AccountingPage: React.FC = () => {
                 pageSize={pageSize}
                 total={total}
                 onPageChange={(newPage) => {
-                  const params: any = { page: newPage, pageSize };
+                  const params: TransactionQueryParams = { page: newPage, pageSize };
                   if (typeFilter) params.type = typeFilter;
                   if (searchTerm) params.search = searchTerm;
                   if (dateFilter.startDate) params.startDate = dateFilter.startDate;
@@ -453,7 +514,7 @@ export const AccountingPage: React.FC = () => {
                   fetchTransactions(params);
                 }}
                 onPageSizeChange={(newPageSize) => {
-                  const params: any = { page: 1, pageSize: newPageSize };
+                  const params: TransactionQueryParams = { page: 1, pageSize: newPageSize };
                   if (typeFilter) params.type = typeFilter;
                   if (searchTerm) params.search = searchTerm;
                   if (dateFilter.startDate) params.startDate = dateFilter.startDate;
@@ -477,7 +538,7 @@ export const AccountingPage: React.FC = () => {
             type: 'income',
             amount: 0,
             description: '',
-            date: new Date().toISOString().split('T')[0],
+            date: getCurrentLocalDateTime(),
           });
           setAmountError('');
           setAmountInputValue('');
@@ -544,9 +605,9 @@ export const AccountingPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">日期 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">时间 *</label>
             <input
-              type="date"
+              type="datetime-local"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -566,7 +627,7 @@ export const AccountingPage: React.FC = () => {
                   type: 'income',
                   amount: 0,
                   description: '',
-                  date: new Date().toISOString().split('T')[0],
+                  date: getCurrentLocalDateTime(),
                 });
                 setAmountError('');
                 setAmountInputValue('');
@@ -729,6 +790,81 @@ export const AccountingPage: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      </Dialog>
+
+      {/* 月度收支情况对话框 */}
+      <Dialog
+        isOpen={isMonthlyStatsDialogOpen}
+        onClose={() => setIsMonthlyStatsDialogOpen(false)}
+        title="月度收支情况"
+        size="md"
+      >
+        <div className="space-y-4">
+          {/* 年份选择 */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700">选择年份:</label>
+            <select
+              className="px-3 py-1.5 border border-gray-300 rounded-lg"
+              value={statsYear}
+              onChange={(e) => {
+                const year = parseInt(e.target.value);
+                setStatsYear(year);
+                fetchMonthlyStats(year);
+              }}
+            >
+              {[2024, 2025, 2026, 2027, 2028].map(y => (
+                <option key={y} value={y}>{y}年</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 加载状态 */}
+          {isLoadingStats ? (
+            <div className="text-center py-8 text-gray-500">加载中...</div>
+          ) : (
+            /* 统计列表 */
+            <div className="max-h-[60vh] overflow-y-auto space-y-3">
+              {monthlyStats.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">暂无数据</div>
+              ) : (
+                monthlyStats.map((stat) => (
+                  <div key={stat.yearMonth} className="bg-gray-50 rounded-lg p-4">
+                    <div className="font-medium text-gray-900 mb-2">{stat.yearMonth}</div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">收入：</span>
+                        <span className="text-green-600 font-medium">
+                          ¥{(stat.totalIncome / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">支出：</span>
+                        <span className="text-red-600 font-medium">
+                          ¥{(stat.totalExpense / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">总收支：</span>
+                        <span className={`font-medium ${stat.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ¥{(stat.netIncome / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button
+            variant="secondary"
+            onClick={() => setIsMonthlyStatsDialogOpen(false)}
+          >
+            关闭
+          </Button>
         </div>
       </Dialog>
     </div>

@@ -96,4 +96,29 @@
         </where>
     </select>
 
+    <select id="findMonthlyStatistics" resultType="com.petshop.backend.dto.MonthlyStatistics">
+        SELECT
+            CONCAT(y, '年', m, '月') AS yearMonth,
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS totalIncome,
+            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS totalExpense,
+            COALESCE(
+                SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0
+            ) AS netIncome
+        FROM (
+            SELECT
+                YEAR(date) AS y,
+                MONTH(date) AS m,
+                type,
+                amount
+            FROM transactions
+            <where>
+                <if test="year != null">
+                    YEAR(date) = #{year}
+                </if>
+            </where>
+        ) AS monthly_data
+        GROUP BY y, m
+        ORDER BY y DESC, m DESC
+    </select>
+
 </mapper>
