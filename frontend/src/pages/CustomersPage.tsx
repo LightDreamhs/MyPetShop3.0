@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCustomerStore } from '../stores/customerStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
+import { preventWheelChange } from '../utils/inputHandlers';
 import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
@@ -107,7 +108,7 @@ export const CustomersPage: React.FC = () => {
   }, [isBalanceDialogOpen]); // 只监听对话框打开状态，不监听 customer 变化
 
   const loadCustomers = () => {
-    const params: any = { page, pageSize };
+    const params: { page: number; pageSize: number; search?: string } = { page, pageSize };
     if (searchTerm) params.search = searchTerm;
     fetchCustomers(params);
   };
@@ -123,7 +124,7 @@ export const CustomersPage: React.FC = () => {
       setIsAddDialogOpen(false);
       resetFormData();
       loadCustomers();
-    } catch (error) {
+    } catch {
       // Error handled by store
     }
   };
@@ -153,7 +154,7 @@ export const CustomersPage: React.FC = () => {
       setSelectedCustomer(null);
       resetFormData();
       loadCustomers();
-    } catch (error) {
+    } catch {
       // Error handled by store
     }
   };
@@ -216,7 +217,7 @@ export const CustomersPage: React.FC = () => {
         const updatedCustomer = await customerApi.getCustomer(selectedCustomer.id);
         setSelectedCustomer(updatedCustomer.data.data);
         loadCustomers();
-      } catch (error) {
+      } catch {
         // 静默处理
       }
     }
@@ -415,15 +416,14 @@ export const CustomersPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">电话号码 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">电话号码</label>
             <input
               type="tel"
               className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="11位手机号"
+              placeholder="11位手机号（选填）"
               pattern="[0-9]{11]"
-              required
             />
           </div>
 
@@ -464,6 +464,7 @@ export const CustomersPage: React.FC = () => {
                 className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.age || ''}
                 onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
+                onWheel={preventWheelChange}
               />
             </div>
             <div>
@@ -495,7 +496,13 @@ export const CustomersPage: React.FC = () => {
                 <button
                   key={level.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, memberLevel: level.value })}
+                  onClick={() => {
+                    setFormData({ ...formData, memberLevel: level.value });
+                    // 如果选择了非0的会员级别，提示设置初始余额
+                    if (level.value > 0) {
+                      alert('提示：请记得为客户设置初始余额！\n\n创建客户后，可在客户详情页点击"充值"按钮设置初始余额。');
+                    }
+                  }}
                   className={`
                     px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all
                     ${formData.memberLevel === level.value
@@ -696,12 +703,12 @@ export const CustomersPage: React.FC = () => {
                         variant="secondary"
                         onClick={async () => {
                           try {
-                            const response = await customerApi.getBalanceHistory(selectedCustomer.id, { page: 1, pageSize: 10 });
+                            const response = await customerApi.getBalanceHistory(selectedCustomer.id, { page: 1, pageSize: 9 });
                             setBalanceHistory(response.data.data.list);
                             setBalanceHistoryTotal(response.data.data.total);
                             setBalanceHistoryPage(1);
                             setIsBalanceHistoryOpen(true);
-                          } catch (error) {
+                          } catch {
                             // Error handled silently
                           }
                         }}
@@ -788,15 +795,14 @@ export const CustomersPage: React.FC = () => {
                     </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">电话号码 *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">电话号码</label>
                     <input
                       type="tel"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="11位手机号"
+                      placeholder="11位手机号（选填）"
                       pattern="[0-9]{11}"
-                      required
                     />
                   </div>
 
@@ -837,6 +843,7 @@ export const CustomersPage: React.FC = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={formData.age || ''}
                         onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
+                        onWheel={preventWheelChange}
                       />
                     </div>
                     <div>
@@ -868,7 +875,13 @@ export const CustomersPage: React.FC = () => {
                         <button
                           key={level.value}
                           type="button"
-                          onClick={() => setFormData({ ...formData, memberLevel: level.value })}
+                          onClick={() => {
+                            setFormData({ ...formData, memberLevel: level.value });
+                            // 如果选择了非0的会员级别，提示设置初始余额
+                            if (level.value > 0) {
+                              alert('提示：请记得为客户设置初始余额！\n\n创建客户后，可在客户详情页点击"充值"按钮设置初始余额。');
+                            }
+                          }}
                           className={`
                             px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all
                             ${formData.memberLevel === level.value
@@ -1013,6 +1026,7 @@ export const CustomersPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={balanceAmount}
               onChange={(e) => setBalanceAmount(e.target.value)}
+              onWheel={preventWheelChange}
               required
             />
             {balanceAmount && parseFloat(balanceAmount) <= 0 && (
@@ -1135,14 +1149,14 @@ export const CustomersPage: React.FC = () => {
             <div className="pt-4 border-t">
               <Pagination
                 currentPage={balanceHistoryPage}
-                pageSize={10}
+                pageSize={9}
                 total={balanceHistoryTotal}
                 onPageChange={async (newPage) => {
                   if (!selectedCustomer) return;
                   try {
                     const response = await customerApi.getBalanceHistory(selectedCustomer.id, {
                       page: newPage,
-                      pageSize: 10,
+                      pageSize: 9,
                     });
                     setBalanceHistory(response.data.data.list);
                     setBalanceHistoryPage(newPage);

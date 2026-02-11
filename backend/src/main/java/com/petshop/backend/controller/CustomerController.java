@@ -150,8 +150,7 @@ public class CustomerController {
             String petName,
             @NotBlank(message = "主人姓名不能为空")
             String ownerName,
-            @NotBlank(message = "电话号码不能为空")
-            @Pattern(regexp = "^1[3-9]\\d{9}$", message = "电话号码格式不正确")
+            @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "电话号码格式不正确")
             String phone,
             Boolean isMember,
             @NotNull(message = "会员级别不能为空")
@@ -175,8 +174,7 @@ public class CustomerController {
             String petName,
             @NotBlank(message = "主人姓名不能为空")
             String ownerName,
-            @NotBlank(message = "电话号码不能为空")
-            @Pattern(regexp = "^1[3-9]\\d{9}$", message = "电话号码格式不正确")
+            @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "电话号码格式不正确")
             String phone,
             Boolean isMember,
             @NotNull(message = "会员级别不能为空")
