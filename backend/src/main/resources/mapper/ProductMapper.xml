@@ -63,6 +63,18 @@
         WHERE id = #{id}
     </update>
 
+    <update id="deductStock">
+        UPDATE products
+        SET stock = stock - #{quantity}
+        WHERE id = #{id} AND stock >= #{quantity}
+    </update>
+
+    <select id="countSaleItemReferences" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM sale_items
+        WHERE product_id = #{productId}
+    </select>
+
     <delete id="deleteById">
         DELETE FROM products
         WHERE id = #{id}

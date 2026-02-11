@@ -78,6 +78,12 @@ public class ProductServiceImpl implements ProductService {
             throw new BusinessException(3001, "商品不存在");
         }
 
+        // 检查是否被销售项引用
+        Long referenceCount = productMapper.countSaleItemReferences(id);
+        if (referenceCount > 0) {
+            throw new BusinessException(3005, "该商品已被销售记录引用，无法删除。请先删除相关的销售记录。");
+        }
+
         productMapper.deleteById(id);
     }
 }
