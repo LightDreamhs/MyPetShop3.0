@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.petshop.backend.mapper.SaleMapper">
+
+    <resultMap id="BaseResultMap" type="com.petshop.backend.entity.Sale">
+        <id column="id" property="id"/>
+        <result column="customer_id" property="customerId"/>
+        <result column="customer_name" property="customerName"/>
+        <result column="total_amount" property="totalAmount"/>
+        <result column="sale_date" property="saleDate"/>
+        <result column="recorded_to_accounting" property="recordedToAccounting"/>
+        <result column="transaction_id" property="transactionId"/>
+        <result column="paid_with_balance" property="paidWithBalance"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT id, customer_id, customer_name, total_amount, sale_date,
+               recorded_to_accounting, transaction_id, paid_with_balance,
+               created_at, updated_at
+        FROM sales
+        <where>
+            <if test="startDate != null and startDate != ''">
+                AND sale_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND sale_date &lt;= #{endDate}
+            </if>
+        </where>
+        ORDER BY sale_date DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countByDateRange" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM sales
+        <where>
+            <if test="startDate != null and startDate != ''">
+                AND sale_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND sale_date &lt;= #{endDate}
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT id, customer_id, customer_name, total_amount, sale_date,
+               recorded_to_accounting, transaction_id, paid_with_balance,
+               created_at, updated_at
+        FROM sales
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.petshop.backend.entity.Sale" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sales (customer_id, customer_name, total_amount, sale_date,
+                          recorded_to_accounting, paid_with_balance)
+        VALUES (#{customerId}, #{customerName}, #{totalAmount}, #{saleDate},
+                #{recordedToAccounting}, #{paidWithBalance})
+    </insert>
+
+    <update id="updateTransactionId">
+        UPDATE sales
+        SET transaction_id = #{transactionId},
+            recorded_to_accounting = 1
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM sales
+        WHERE id = #{id}
+    </delete>
+
+</mapper>
