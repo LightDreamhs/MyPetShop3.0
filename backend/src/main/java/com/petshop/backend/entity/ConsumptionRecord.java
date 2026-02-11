@@ -21,6 +21,11 @@ public class ConsumptionRecord extends BaseEntity {
     private Long customerId;
 
     /**
+     * 关联的商品销售ID（NULL表示服务消费）
+     */
+    private Long saleId;
+
+    /**
      * 消费日期
      */
     private String date;

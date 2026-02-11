@@ -36,6 +36,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 处理库存不足异常
+     */
+    @ExceptionHandler(InsufficientStockException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<Void> handleInsufficientStockException(InsufficientStockException e) {
+        log.error("库存不足: {}", e.getMessage());
+        return Result.error(2001, e.getMessage());
+    }
+
+    /**
      * 处理参数校验异常
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
