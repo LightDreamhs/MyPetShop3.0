@@ -45,7 +45,21 @@ public interface ProductMapper {
     int updateStock(@Param("id") Long id, @Param("stock") Integer stock);
 
     /**
+     * 扣减库存（带乐观锁，防止并发超卖）
+     *
+     * @return 更新的行数，如果为0说明库存不足
+     */
+    int deductStock(@Param("id") Long id, @Param("quantity") Integer quantity);
+
+    /**
      * 删除商品
      */
     int deleteById(Long id);
+
+    /**
+     * 检查商品是否被销售项引用
+     *
+     * @return 引用数量
+     */
+    Long countSaleItemReferences(@Param("productId") Long productId);
 }
