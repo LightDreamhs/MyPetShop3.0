@@ -6,6 +6,7 @@ import com.petshop.backend.dto.SaleCreateRequest;
 import com.petshop.backend.dto.SaleResponse;
 import com.petshop.backend.entity.Sale;
 import com.petshop.backend.service.SaleService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -24,8 +25,11 @@ public class SaleController {
      * 创建销售记录（散客和会员通用）
      */
     @PostMapping
-    public Result<SaleResponse> createSale(@Valid @RequestBody SaleCreateRequest request) {
-        SaleResponse response = saleService.createSale(request);
+    public Result<SaleResponse> createSale(
+            @Valid @RequestBody SaleCreateRequest request,
+            HttpServletRequest httpRequest) {
+        Long operatorId = (Long) httpRequest.getAttribute("userId");
+        SaleResponse response = saleService.createSale(request, operatorId);
         return Result.success("开单成功", response);
     }
 

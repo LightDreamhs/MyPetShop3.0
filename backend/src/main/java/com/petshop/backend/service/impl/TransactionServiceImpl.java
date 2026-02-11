@@ -7,6 +7,7 @@ import com.petshop.backend.entity.Transaction;
 import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.TransactionMapper;
 import com.petshop.backend.service.TransactionService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +27,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public PageResult<Transaction> findByPage(Integer page, Integer pageSize, String type, String startDate, String endDate, String search) {
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<Transaction> list = transactionMapper.findByPage(offset, pageSize, type, startDate, endDate, search);

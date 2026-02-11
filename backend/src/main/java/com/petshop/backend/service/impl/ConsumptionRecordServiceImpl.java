@@ -7,6 +7,7 @@ import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.mapper.ConsumptionRecordMapper;
 import com.petshop.backend.mapper.CustomerMapper;
 import com.petshop.backend.service.ConsumptionRecordService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class ConsumptionRecordServiceImpl implements ConsumptionRecordService {
         }
 
         // 计算偏移量
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         // 查询数据
         List<ConsumptionRecord> list = consumptionRecordMapper.findByCustomerIdAndPage(customerId, offset, pageSize, startDate, endDate);

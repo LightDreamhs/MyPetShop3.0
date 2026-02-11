@@ -3,6 +3,8 @@ package com.petshop.backend.entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+
 /**
  * 商品销售记录实体类
  */
@@ -49,4 +51,9 @@ public class Sale extends BaseEntity {
      * 是否使用余额支付（0否1是）
      */
     private Boolean paidWithBalance;
+
+    /**
+     * 销售明细列表（关联查询时填充）
+     */
+    private List<SaleItem> items;
 }

@@ -8,6 +8,7 @@ import com.petshop.backend.exception.BusinessException;
 import com.petshop.backend.exception.InsufficientStockException;
 import com.petshop.backend.mapper.*;
 import com.petshop.backend.service.SaleService;
+import com.petshop.backend.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +33,46 @@ public class SaleServiceImpl implements SaleService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaleResponse createSale(SaleCreateRequest request) {
-        // 1. 验证并获取所有商品信息
+    public SaleResponse createSale(SaleCreateRequest request, Long operatorId) {
+        // 1. 验证商品库存
+        List<Product> products = validateProductsAndGet(request.getItems());
+
+        // 2. 验证会员余额
+        if (request.isUseBalance() && request.getCustomerId() != null) {
+            validateCustomerBalance(request.getCustomerId(), request.getTotalAmount());
+        }
+
+        // 3. 创建销售记录
+        Sale sale = createSaleRecord(request);
+
+        // 4. 创建销售项并扣减库存
+        createSaleItemsAndDeductStock(sale.getId(), request.getItems(), products);
+
+        // 5. 创建消费记录（会员）
+        if (request.getCustomerId() != null) {
+            createConsumptionRecord(request.getCustomerId(), sale.getId(),
+                    request.getSaleDate(), request.getTotalAmount());
+        }
+
+        // 6. 处理余额支付
+        if (request.isUseBalance() && request.getCustomerId() != null) {
+            deductBalanceForSale(request.getCustomerId(), request.getTotalAmount(), operatorId);
+        }
+
+        // 7. 同步财务记录
+        if (request.isRecordToAccounting()) {
+            syncToAccounting(sale.getId(), request, products);
+        }
+
+        return new SaleResponse(sale.getId(), sale.getTotalAmount(), sale.getSaleDate());
+    }
+
+    /**
+     * 验证商品存在性和库存
+     */
+    private List<Product> validateProductsAndGet(List<SaleCreateRequest.SaleItemRequest> items) {
         List<Product> products = new ArrayList<>();
-        for (SaleCreateRequest.SaleItemRequest item : request.getItems()) {
+        for (SaleCreateRequest.SaleItemRequest item : items) {
             Product product = productMapper.findById(item.getProductId());
             if (product == null) {
                 throw new BusinessException(3001, "商品不存在: " + item.getProductId());
@@ -46,20 +83,27 @@ public class SaleServiceImpl implements SaleService {
             }
             products.add(product);
         }
+        return products;
+    }
 
-        // 2. 验证会员余额（如果使用余额支付）
-        if (request.isUseBalance() && request.getCustomerId() != null) {
-            Customer customer = customerMapper.findById(request.getCustomerId());
-            if (customer == null) {
-                throw new BusinessException(2001, "客户不存在");
-            }
-            Long currentBalance = customer.getBalance() != null ? customer.getBalance() : 0L;
-            if (currentBalance < request.getTotalAmount()) {
-                throw new BusinessException(3003, "余额不足");
-            }
+    /**
+     * 验证会员余额是否充足
+     */
+    private void validateCustomerBalance(Long customerId, Long totalAmount) {
+        Customer customer = customerMapper.findById(customerId);
+        if (customer == null) {
+            throw new BusinessException(2001, "客户不存在");
         }
+        Long currentBalance = customer.getBalance() != null ? customer.getBalance() : 0L;
+        if (currentBalance < totalAmount) {
+            throw new BusinessException(3003, "余额不足");
+        }
+    }
 
-        // 3. 创建销售记录
+    /**
+     * 创建销售主记录
+     */
+    private Sale createSaleRecord(SaleCreateRequest request) {
         Sale sale = new Sale();
         sale.setCustomerId(request.getCustomerId());
         sale.setCustomerName(request.getCustomerName());
@@ -68,15 +112,20 @@ public class SaleServiceImpl implements SaleService {
         sale.setRecordedToAccounting(false);
         sale.setPaidWithBalance(request.isUseBalance());
         saleMapper.insert(sale);
+        return sale;
+    }
 
-        // 4. 创建销售项并扣减库存
-        for (int i = 0; i < request.getItems().size(); i++) {
-            SaleCreateRequest.SaleItemRequest item = request.getItems().get(i);
+    /**
+     * 创建销售明细并扣减库存
+     */
+    private void createSaleItemsAndDeductStock(Long saleId, List<SaleCreateRequest.SaleItemRequest> items, List<Product> products) {
+        for (int i = 0; i < items.size(); i++) {
+            SaleCreateRequest.SaleItemRequest item = items.get(i);
             Product product = products.get(i);
             long subtotal = item.getUnitPrice() * item.getQuantity();
 
             SaleItem saleItem = new SaleItem();
-            saleItem.setSaleId(sale.getId());
+            saleItem.setSaleId(saleId);
             saleItem.setProductId(item.getProductId());
             saleItem.setProductName(product.getName());
             saleItem.setQuantity(item.getQuantity());
@@ -91,59 +140,62 @@ public class SaleServiceImpl implements SaleService {
                         product.getName(), product.getStock(), item.getQuantity());
             }
         }
+    }
 
-        // 5. 如果是会员，创建消费记录
-        if (request.getCustomerId() != null) {
-            ConsumptionRecord consumptionRecord = new ConsumptionRecord();
-            consumptionRecord.setCustomerId(request.getCustomerId());
-            consumptionRecord.setSaleId(sale.getId());
-            consumptionRecord.setDate(request.getSaleDate());
-            consumptionRecord.setItem("商品消费");
-            consumptionRecord.setAmount(request.getTotalAmount());
-            consumptionRecordMapper.insert(consumptionRecord);
-        }
+    /**
+     * 创建消费记录
+     */
+    private void createConsumptionRecord(Long customerId, Long saleId, String saleDate, Long totalAmount) {
+        ConsumptionRecord consumptionRecord = new ConsumptionRecord();
+        consumptionRecord.setCustomerId(customerId);
+        consumptionRecord.setSaleId(saleId);
+        consumptionRecord.setDate(saleDate);
+        consumptionRecord.setItem("商品消费");
+        consumptionRecord.setAmount(totalAmount);
+        consumptionRecordMapper.insert(consumptionRecord);
+    }
 
-        // 6. 如果使用余额，扣减余额
-        if (request.isUseBalance() && request.getCustomerId() != null) {
-            Customer customer = customerMapper.findById(request.getCustomerId());
-            Long balanceBefore = customer.getBalance();
-            Long balanceAfter = balanceBefore - request.getTotalAmount();
+    /**
+     * 余额支付处理
+     */
+    private void deductBalanceForSale(Long customerId, Long amount, Long operatorId) {
+        Customer customer = customerMapper.findById(customerId);
+        Long balanceBefore = customer.getBalance();
+        Long balanceAfter = balanceBefore - amount;
 
-            customer.setBalance(balanceAfter);
-            customerMapper.updateBalance(request.getCustomerId(), balanceAfter);
+        customer.setBalance(balanceAfter);
+        customerMapper.updateBalance(customerId, balanceAfter);
 
-            // 记录余额变动历史
-            BalanceTransaction transaction = new BalanceTransaction();
-            transaction.setCustomerId(request.getCustomerId());
-            transaction.setType(BalanceTransaction.TransactionType.DEDUCT);
-            transaction.setAmount(request.getTotalAmount());
-            transaction.setBalanceBefore(balanceBefore);
-            transaction.setBalanceAfter(balanceAfter);
-            transaction.setDescription("商品消费");
-            // TODO: 从 JWT 中获取操作人ID
-            transaction.setOperatorId(1L);
-            balanceTransactionMapper.insert(transaction);
-        }
+        // 记录余额变动历史
+        BalanceTransaction transaction = new BalanceTransaction();
+        transaction.setCustomerId(customerId);
+        transaction.setType(BalanceTransaction.TransactionType.DEDUCT);
+        transaction.setAmount(amount);
+        transaction.setBalanceBefore(balanceBefore);
+        transaction.setBalanceAfter(balanceAfter);
+        transaction.setDescription("商品消费");
+        transaction.setOperatorId(operatorId);
+        balanceTransactionMapper.insert(transaction);
+    }
 
-        // 7. 如果需要记账，创建财务记录
-        if (request.isRecordToAccounting()) {
-            Transaction transaction = new Transaction();
-            transaction.setType("income");
-            transaction.setAmount(request.getTotalAmount());
-            transaction.setDescription(buildTransactionDescription(
-                    request.getCustomerName(), products, request.getItems(), request.getTotalAmount()));
-            transaction.setDate(request.getSaleDate());
-            transactionMapper.insert(transaction);
+    /**
+     * 同步财务记录
+     */
+    private void syncToAccounting(Long saleId, SaleCreateRequest request, List<Product> products) {
+        Transaction transaction = new Transaction();
+        transaction.setType("income");
+        transaction.setAmount(request.getTotalAmount());
+        transaction.setDescription(buildTransactionDescription(
+                request.getCustomerName(), products, request.getItems(), request.getTotalAmount()));
+        transaction.setDate(request.getSaleDate());
+        transactionMapper.insert(transaction);
 
-            saleMapper.updateTransactionId(sale.getId(), transaction.getId());
-        }
-
-        return new SaleResponse(sale.getId(), sale.getTotalAmount(), sale.getSaleDate());
+        saleMapper.updateTransactionId(saleId, transaction.getId());
     }
 
     @Override
     public PageResult<Sale> findByPage(Integer page, Integer pageSize, String startDate, String endDate) {
-        Integer offset = (page - 1) * pageSize;
+        Integer offset = PaginationUtil.calculateOffset(page, pageSize);
 
         List<Sale> list = saleMapper.findByPage(offset, pageSize, startDate, endDate);
         Long total = saleMapper.countByDateRange(startDate, endDate);
@@ -153,14 +205,11 @@ public class SaleServiceImpl implements SaleService {
 
     @Override
     public Sale findById(Long id) {
-        Sale sale = saleMapper.findById(id);
+        // 使用关联查询一次性获取销售记录和明细，避免N+1查询
+        Sale sale = saleMapper.findWithItemsById(id);
         if (sale == null) {
             throw new BusinessException(4004, "销售记录不存在");
         }
-
-        // 查询销售项
-        List<SaleItem> items = saleItemMapper.findBySaleId(id);
-        // 注意：Sale 实体类需要添加 items 字段，或者在这里构建响应对象
 
         return sale;
     }
