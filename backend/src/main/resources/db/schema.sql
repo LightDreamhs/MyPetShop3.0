@@ -73,6 +73,7 @@ DROP TABLE IF EXISTS `consumption_records`;
 CREATE TABLE `consumption_records` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '记录ID',
   `customer_id` BIGINT UNSIGNED NOT NULL COMMENT '客户ID',
+  `sale_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '关联的商品销售ID（NULL表示服务消费）',
   `date` DATETIME NOT NULL COMMENT '消费日期',
   `item` VARCHAR(200) NOT NULL COMMENT '消费项目',
   `problem` TEXT DEFAULT NULL COMMENT '发现问题',
@@ -82,7 +83,9 @@ CREATE TABLE `consumption_records` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_customer_id` (`customer_id`),
-  KEY `idx_date` (`date`)
+  KEY `idx_date` (`date`),
+  KEY `idx_sale_id` (`sale_id`),
+  CONSTRAINT `fk_consumption_records_sale` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消费记录表';
 
 -- ============================================
@@ -120,6 +123,49 @@ CREATE TABLE `transactions` (
   KEY `idx_type` (`type`),
   KEY `idx_date` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='财务记录表';
+
+-- ============================================
+-- 7. 商品销售表 (sales)
+-- ============================================
+DROP TABLE IF EXISTS `sales`;
+CREATE TABLE `sales` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '销售记录ID',
+  `customer_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '客户ID（NULL表示散客）',
+  `customer_name` VARCHAR(100) NOT NULL COMMENT '消费者姓名（冗余）',
+  `total_amount` BIGINT NOT NULL COMMENT '销售总价（单位：分）',
+  `sale_date` DATETIME NOT NULL COMMENT '销售时间',
+  `recorded_to_accounting` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已记账（0否1是）',
+  `transaction_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '关联的财务记录ID',
+  `paid_with_balance` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否使用余额支付（0否1是）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_customer_id` (`customer_id`),
+  KEY `idx_sale_date` (`sale_date`),
+  KEY `idx_transaction_id` (`transaction_id`),
+  CONSTRAINT `fk_sales_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_sales_transaction` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品销售记录表';
+
+-- ============================================
+-- 8. 销售项表 (sale_items)
+-- ============================================
+DROP TABLE IF EXISTS `sale_items`;
+CREATE TABLE `sale_items` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '销售项ID',
+  `sale_id` BIGINT UNSIGNED NOT NULL COMMENT '销售记录ID',
+  `product_id` BIGINT UNSIGNED NOT NULL COMMENT '商品ID',
+  `product_name` VARCHAR(200) NOT NULL COMMENT '商品名称（冗余，防止商品删除后无法显示）',
+  `quantity` INT NOT NULL COMMENT '销售数量',
+  `unit_price` BIGINT NOT NULL COMMENT '商品单价（单位：分）',
+  `subtotal` BIGINT NOT NULL COMMENT '小计（单位：分）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_sale_id` (`sale_id`),
+  KEY `idx_product_id` (`product_id`),
+  CONSTRAINT `fk_sale_items_sale` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sale_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品销售项表';
 
 -- ============================================
 -- 初始化数据

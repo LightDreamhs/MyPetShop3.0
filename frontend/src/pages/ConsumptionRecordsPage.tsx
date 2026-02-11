@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Trash2, Wallet } from 'lucide-react';
 import { useCustomerStore } from '../stores/customerStore';
@@ -27,18 +27,19 @@ export const ConsumptionRecordsPage: React.FC = () => {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
+  // 使用 useCallback 避免依赖项问题
+  const loadRecords = useCallback(() => {
+    if (customerId) {
+      fetchRecords(parseInt(customerId), { page, pageSize });
+    }
+  }, [customerId, page, pageSize, fetchRecords]);
+
   useEffect(() => {
     if (customerId) {
       fetchCustomer(parseInt(customerId));
       loadRecords();
     }
-  }, [customerId, page]);
-
-  const loadRecords = () => {
-    if (customerId) {
-      fetchRecords(parseInt(customerId), { page, pageSize });
-    }
-  };
+  }, [customerId, fetchCustomer, loadRecords]);
 
   // 新增消费记录成功后的回调
   const handleRecordAdded = () => {
@@ -53,7 +54,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
       try {
         await deleteRecord(id);
         loadRecords();
-      } catch (error) {
+      } catch {
         // Error handled by store
       }
     }
@@ -191,7 +192,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
                       {records.map((record) => (
                         <tr key={record.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(record.date).toLocaleDateString('zh-CN')}
+                            {new Date(record.date).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900">
                             {record.item}

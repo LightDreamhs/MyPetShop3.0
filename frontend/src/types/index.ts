@@ -133,6 +133,13 @@ export interface TransactionStatistics {
   expenseCount: number;
 }
 
+export interface MonthlyStatistics {
+  yearMonth: string;    // 格式: "2024-01"
+  totalIncome: number;  // 单位：分
+  totalExpense: number; // 单位：分
+  netIncome: number;    // 单位：分
+}
+
 export interface UploadResponse {
   url: string;
   filename: string;
@@ -160,5 +167,45 @@ export interface BalanceRechargeRequest {
 export interface BalanceDeductRequest {
   amount: number;
   description?: string;
+}
+
+// 销售项
+export interface SaleItem {
+  productId: number;
+  productName: string;
+  quantity: number;
+  unitPrice: number;  // 单位：分
+  subtotal: number;   // 单位：分
+}
+
+// 销售请求
+export interface SaleFormData {
+  customerId?: number;      // 会员ID，可选
+  customerName: string;      // 消费者姓名
+  items: SaleItem[];
+  totalAmount: number;       // 单位：分，手动输入
+  saleDate: string;
+  recordToAccounting: boolean;
+  useBalance?: boolean;      // 仅会员
+}
+
+// 销售响应
+export interface SaleResponse {
+  id: number;
+  totalAmount: number;
+  saleDate: string;
+}
+
+// Sale 实体
+export interface Sale {
+  id: number;
+  customerId?: number;
+  customerName: string;
+  totalAmount: number;
+  saleDate: string;
+  recordedToAccounting: boolean;
+  paidWithBalance: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 

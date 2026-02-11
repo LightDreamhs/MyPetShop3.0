@@ -26,7 +26,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   currentCustomer: null,
   total: 0,
   page: 1,
-  pageSize: 10,
+  pageSize: 9,
   isLoading: false,
   error: null,
 

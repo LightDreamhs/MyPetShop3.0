@@ -6,6 +6,7 @@
     <resultMap id="BaseResultMap" type="com.petshop.backend.entity.ConsumptionRecord">
         <id column="id" property="id"/>
         <result column="customer_id" property="customerId"/>
+        <result column="sale_id" property="saleId"/>
         <result column="date" property="date"/>
         <result column="item" property="item"/>
         <result column="problem" property="problem"/>
@@ -16,7 +17,7 @@
     </resultMap>
 
     <select id="findByCustomerIdAndPage" resultMap="BaseResultMap">
-        SELECT id, customer_id, date, item, problem, suggestion, amount, created_at, updated_at
+        SELECT id, customer_id, sale_id, date, item, problem, suggestion, amount, created_at, updated_at
         FROM consumption_records
         <where>
             customer_id = #{customerId}
@@ -46,14 +47,14 @@
     </select>
 
     <select id="findById" resultMap="BaseResultMap">
-        SELECT id, customer_id, date, item, problem, suggestion, amount, created_at, updated_at
+        SELECT id, customer_id, sale_id, date, item, problem, suggestion, amount, created_at, updated_at
         FROM consumption_records
         WHERE id = #{id}
     </select>
 
     <insert id="insert" parameterType="com.petshop.backend.entity.ConsumptionRecord" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO consumption_records (customer_id, date, item, problem, suggestion, amount)
-        VALUES (#{customerId}, #{date}, #{item}, #{problem}, #{suggestion}, #{amount})
+        INSERT INTO consumption_records (customer_id, sale_id, date, item, problem, suggestion, amount)
+        VALUES (#{customerId}, #{saleId}, #{date}, #{item}, #{problem}, #{suggestion}, #{amount})
     </insert>
 
     <update id="update" parameterType="com.petshop.backend.entity.ConsumptionRecord">
