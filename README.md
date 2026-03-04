@@ -1,6 +1,6 @@
 # 宠物店后台管理系统
 
-一个功能完整的宠物店后台管理系统，支持库存管理、客户管理、消费记录、财务记账等核心功能。
+基于 Spring Boot 3 + React 19 + TypeScript 的宠物店后台管理系统，提供库存管理、客户管理、销售管理、消费记录、财务记账和会员余额管理等核心功能。
 
 ## 项目概述
 
@@ -8,40 +8,79 @@
 
 ### 核心功能
 
-- **库存管理**: 商品信息的增删改查、库存管理
-- **客户管理**: 客户信息管理、会员等级管理（5个级别）
-- **会员余额管理**: 支持会员充值、扣减、余额变动历史查询
-- **消费记录**: 客户消费记录跟踪，支持问题诊断和建议
-- **财务记账**: 收支记录管理、财务统计分析
-- **用户认证**: JWT Token 认证机制
+| 模块 | 功能 |
+|------|------|
+| **库存管理** | 商品信息增删改查、库存管理、散客开单 |
+| **客户管理** | 客户信息管理、会员等级管理（5 个级别） |
+| **会员余额管理** | 会员充值、扣减、余额变动历史查询 |
+| **消费记录** | 客户消费记录跟踪、问题诊断、服务建议 |
+| **财务记账** | 收支记录管理、财务统计分析、月度统计 |
+| **用户管理** | 店员管理、角色权限控制（ADMIN/STAFF） |
+| **销售管理** | 散客/会员统一销售流程、库存自动扣减 |
 
 ## 技术栈
 
 ### 前端
-- React 19
-- TypeScript
-- Vite
-- Zustand (状态管理)
-- Tailwind CSS 4
-- Axios
-- Lucide React (图标库)
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| **React** | 19.2.0 | 前端框架 |
+| **TypeScript** | 5.9.3 | 类型系统 |
+| **Vite** | 7.2.4 | 构建工具 |
+| **React Router DOM** | 7.12.0 | 路由管理 |
+| **Zustand** | 5.0.10 | 状态管理 |
+| **Axios** | 1.13.2 | HTTP 客户端 |
+| **Tailwind CSS** | 4.1.18 | UI 样式 |
+| **Lucide React** | 0.562.0 | 图标库 |
 
 ### 后端
-- Java 17
-- Spring Boot 3.2.0
-- MyBatis 3.0.3
-- MySQL 8.0
-- JWT (io.jsonwebtoken:jjwt:0.12.3)
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| **Java** | 17 | 编程语言 |
+| **Spring Boot** | 3.2.0 | 应用框架 |
+| **MyBatis** | 3.0.3 | ORM 框架 |
+| **MySQL** | 8.0 | 数据库 |
+| **JWT** | 0.12.3 | 认证授权 |
+| **Lombok** | - | 代码简化 |
+| **HikariCP** | - | 数据库连接池 |
 
 ## 项目结构
 
 ```
 MyPetShop3.0/
-├── frontend/              # 前端项目（React + TypeScript）
-├── backend/               # 后端项目（Spring Boot）
-├── reference/             # 参考文档和设计资料
-├── API接口文档.md         # API接口文档
-└── README.md             # 项目说明文档
+├── frontend/              # 前端项目（React + TypeScript + Vite）
+│   ├── src/
+│   │   ├── components/    # 组件目录
+│   │   │   ├── ui/        # UI 基础组件（Button, Dialog, Card 等）
+│   │   │   └── ...
+│   │   ├── pages/         # 页面组件
+│   │   ├── stores/        # Zustand 状态管理
+│   │   ├── services/      # API 服务
+│   │   ├── utils/         # 工具函数
+│   │   └── types/         # TypeScript 类型定义
+│   └── package.json
+├── backend/               # 后端项目（Spring Boot 3.2）
+│   ├── src/main/java/com/petshop/backend/
+│   │   ├── controller/    # 控制器层（8 个）
+│   │   ├── service/       # 服务层
+│   │   ├── mapper/        # MyBatis Mapper（8 个）
+│   │   ├── entity/        # 实体类（8 个）
+│   │   ├── dto/           # 数据传输对象（10 个）
+│   │   ├── config/        # 配置类
+│   │   ├── interceptor/   # 拦截器（JWT、角色）
+│   │   └── exception/     # 异常处理
+│   ├── src/main/resources/
+│   │   ├── application.yml
+│   │   ├── db/schema.sql  # 数据库初始化脚本
+│   │   └── mapper/        # MyBatis XML 映射
+│   └── pom.xml
+├── deployment/            # Docker 部署配置
+│   ├── docker-compose.yml
+│   └── mysql-init/
+├── docs/                  # 项目文档
+│   └── frontend-architecture.md
+└── README.md
 ```
 
 ## 快速开始
@@ -52,40 +91,45 @@ MyPetShop3.0/
 - JDK 17+
 - Maven 3.6+
 - MySQL 8.0+
-- Git
+- Docker（推荐）
 
-### 1. 克隆项目
+### 1. 数据库准备
+
+#### 使用 Docker（推荐）
 
 ```bash
-git clone <repository-url>
-cd MyPetShop3.0
+cd deployment
+docker compose up -d mysql
+
+# 等待容器启动后，执行初始化脚本
+docker exec -i petshop-mysql mysql -uroot -proot pet_shop_3_0 < backend/src/main/resources/db/schema.sql
 ```
 
-### 2. 数据库初始化
+#### 使用本地 MySQL
 
 ```bash
-# 登录MySQL
-mysql -u root -p
+# 登录 MySQL（端口 3307）
+mysql -h 127.0.0.1 -P 3307 -u root -p
+
+# 创建数据库
+CREATE DATABASE IF NOT EXISTS pet_shop_3_0 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # 执行初始化脚本
 source backend/src/main/resources/db/schema.sql
 ```
 
-### 3. 启动后端服务
+### 2. 启动后端服务
 
 ```bash
 cd backend
 
-# 修改数据库配置
-# 编辑 src/main/resources/application.yml
-
-# 安装依赖并启动
-mvn spring-boot:run
+# 确认数据库配置（src/main/resources/application.yml）
+# mvn spring-boot:run
 ```
 
-后端服务将在 `http://localhost:8080` 启动
+后端服务将在 `http://localhost:8080/api/v1` 启动
 
-### 4. 启动前端服务
+### 3. 启动前端服务
 
 ```bash
 cd frontend
@@ -99,38 +143,84 @@ npm run dev
 
 前端服务将在 `http://localhost:5173` 启动
 
-### 5. 访问系统
+### 4. 访问系统
 
 - **前端地址**: http://localhost:5173
-- **后端API**: http://localhost:8080/api/v1
-- **默认账号**:
-  - 用户名: `admin`
-  - 密码: `admin123`
+- **后端 API**: http://localhost:8080/api/v1
+- **默认账号**: 用户名 `admin`（无需密码）
 
 ## 文档
 
-### 核心文档
-
-- [API接口文档.md](./API接口文档.md) - 完整的API接口文档
-- [backend/README.md](./backend/README.md) - 后端项目详细说明
-- [frontend/README.md](./frontend/README.md) - 前端项目详细说明
-
-### 参考资料目录 `reference/`
-
-- `prototype/` - 系统原型设计
-- `frontend-description.md` - 前端设计说明文档
+| 文档 | 说明 |
+|------|------|
+| [backend/README.md](./backend/README.md) | 后端项目详细说明（架构、API、配置） |
+| [frontend/README.md](./frontend/README.md) | 前端项目详细说明 |
+| [docs/frontend-architecture.md](./docs/frontend-architecture.md) | 前端技术文档（架构、组件、状态管理） |
+| [API接口文档.md](./API接口文档.md) | API 接口文档 |
+| [deployment/PERFORMANCE_OPTIMIZATION.md](./deployment/PERFORMANCE_OPTIMIZATION.md) | 性能优化指南 |
 
 ## 会员级别说明
 
-系统支持5个客户会员级别（按充值金额档位）：
+系统支持 5 个客户会员级别（按充值金额档位）：
 
-| 级别值 | 名称 | 说明 |
-|--------|------|------|
-| 0 | 非会员 | 普通客户，无会员权益 |
-| 1 | 500元档 | 充值500元会员档位 |
-| 2 | 1000元档 | 充值1000元会员档位 |
-| 3 | 2000元档 | 充值2000元会员档位 |
-| 4 | 5000元档 | 充值5000元会员档位 |
+| 级别值 | 名称 | 充值档位 | 颜色 |
+|--------|------|----------|------|
+| 0 | 非会员 | - | 灰色 |
+| 1 | 500 元档 | 500 元 | 绿色 |
+| 2 | 1000 元档 | 1000 元 | 蓝色 |
+| 3 | 2000 元档 | 2000 元 | 紫色 |
+| 4 | 5000 元档 | 5000 元 | 红色 |
+
+## API 端点
+
+### 认证模块 (`/auth`)
+- `POST /auth/login` - 用户登录
+- `GET /auth/me` - 获取当前用户信息
+- `POST /auth/logout` - 用户登出
+
+### 用户管理 (`/users`) - ADMIN
+- `GET /users` - 获取用户列表（分页、搜索）
+- `GET /users/{id}` - 获取用户详情
+- `POST /users` - 创建用户
+- `PUT /users/{id}` - 更新用户
+- `DELETE /users/{id}` - 删除用户
+
+### 商品管理 (`/products`)
+- `GET /products` - 获取商品列表（分页、搜索）
+- `POST /products` - 创建商品 - ADMIN
+- `PUT /products/{id}` - 更新商品 - ADMIN
+- `PATCH /products/{id}/stock` - 修改商品库存
+- `DELETE /products/{id}` - 删除商品 - ADMIN
+
+### 客户管理 (`/customers`)
+- `GET /customers` - 获取客户列表（分页、搜索、会员级别筛选）
+- `POST /customers` - 创建客户
+- `PUT /customers/{id}` - 更新客户
+- `DELETE /customers/{id}` - 删除客户 - ADMIN
+- `POST /customers/{id}/balance/recharge` - 会员余额充值
+- `POST /customers/{id}/balance/deduct` - 会员余额扣减
+- `GET /customers/{id}/balance/history` - 获取余额变动历史
+
+### 销售管理 (`/sales`)
+- `GET /sales` - 获取销售记录列表（分页、日期范围）
+- `POST /sales` - 创建销售记录（散客 + 会员通用）
+
+### 消费记录 (`/consumption-records`)
+- `GET /customers/{customerId}/consumption-records` - 获取客户消费记录
+- `POST /customers/{customerId}/consumption-records` - 创建消费记录
+- `PUT /consumption-records/{id}` - 更新消费记录
+- `DELETE /consumption-records/{id}` - 删除消费记录 - ADMIN
+
+### 财务记账 (`/transactions`)
+- `GET /transactions` - 获取财务记录列表（分页、类型、日期范围、搜索）
+- `POST /transactions` - 创建财务记录
+- `PUT /transactions/{id}` - 更新财务记录
+- `DELETE /transactions/{id}` - 删除财务记录 - ADMIN
+- `GET /transactions/statistics` - 获取财务统计
+- `GET /transactions/monthly-statistics` - 获取按月统计
+
+### 文件上传 (`/upload`)
+- `POST /upload/image` - 上传图片（单文件最大 5MB）
 
 ## 开发指南
 
@@ -167,127 +257,21 @@ npm run lint
 npm run build
 ```
 
-## API 端点
-
-### 认证模块
-- `POST /auth/login` - 用户登录
-- `GET /auth/me` - 获取当前用户信息
-- `POST /auth/logout` - 用户登出
-
-### 库存管理
-- `GET /products` - 获取商品列表
-- `GET /products/:id` - 获取商品详情
-- `POST /products` - 创建商品
-- `PUT /products/:id` - 更新商品
-- `PATCH /products/:id/stock` - 修改商品库存
-- `DELETE /products/:id` - 删除商品
-
-### 客户管理
-- `GET /customers` - 获取客户列表（支持按会员级别筛选）
-- `GET /customers/:id` - 获取客户详情
-- `POST /customers` - 创建客户
-- `PUT /customers/:id` - 更新客户
-- `DELETE /customers/:id` - 删除客户
-- `POST /customers/:id/balance/recharge` - 会员充值
-- `POST /customers/:id/balance/deduct` - 会员余额扣减
-- `GET /customers/:id/balance/history` - 获取余额变动历史
-
-### 消费记录
-- `GET /customers/:customerId/consumption-records` - 获取客户消费记录
-- `GET /consumption-records/:id` - 获取消费记录详情
-- `POST /customers/:customerId/consumption-records` - 创建消费记录
-- `PUT /consumption-records/:id` - 更新消费记录
-- `DELETE /consumption-records/:id` - 删除消费记录
-
-### 财务记账
-- `GET /transactions` - 获取财务记录列表
-- `GET /transactions/:id` - 获取财务记录详情
-- `POST /transactions` - 创建财务记录
-- `PUT /transactions/:id` - 更新财务记录
-- `DELETE /transactions/:id` - 删除财务记录
-- `GET /transactions/statistics` - 获取财务统计
-
-## 数据模型
-
-### 核心实体
-
-- **User**: 用户
-- **Product**: 商品
-- **Customer**: 客户（包含会员级别和余额）
-- **BalanceTransaction**: 余额交易记录
-- **ConsumptionRecord**: 消费记录
-- **Transaction**: 财务记录
-
-详细数据结构请参考 [API接口文档.md](./API接口文档.md)
-
 ## 部署
 
 ### Docker 部署（推荐）
 
-项目使用 Docker Compose 进行容器化部署，方便快速启动所有服务。
-
-#### 环境要求
-- Docker 20.10+
-- Docker Compose 2.0+
-
-#### 快速启动
-
-**Windows 用户：**
 ```bash
-# 进入后端目录
-cd backend
+cd deployment
 
-# 初始化数据库（首次运行）
-docker-init.bat
+# 启动所有服务
+docker compose up -d
 
-# 启动服务
-docker-start-minimal.bat
-```
+# 查看日志
+docker compose logs -f
 
-**Linux/Mac 用户：**
-```bash
-# 进入后端目录
-cd backend
-
-# 初始化数据库（首次运行）
-chmod +x docker-init.sh
-./docker-init.sh
-
-# 启动服务
-chmod +x docker-start.sh
-./docker-start.sh
-```
-
-#### 服务说明
-
-Docker Compose 会启动以下服务：
-- **MySQL 8.0**: 端口 3307（避免与本地 MySQL 冲突）
-  - 数据库名：`pet_shop_3_0`
-  - 用户名：`root`
-  - 密码：`root`
-
-#### 停止服务
-
-**Windows：**
-```bash
-docker-stop-minimal.bat
-```
-
-**Linux/Mac：**
-```bash
-./docker-stop.sh
-```
-
-#### 重置服务
-
-**Windows：**
-```bash
-docker-reset-minimal.bat
-```
-
-**Linux/Mac：**
-```bash
-./docker-reset.sh
+# 停止服务
+docker compose down
 ```
 
 ### 手动部署
@@ -296,64 +280,52 @@ docker-reset-minimal.bat
 - [backend/README.md](./backend/README.md) - 后端部署说明
 - [frontend/README.md](./frontend/README.md) - 前端部署说明
 
+## 注意事项
+
+1. **Token 过期**: Token 有效期为 2 小时，过期后需要重新登录
+2. **金额单位**: 后端使用"分"作为金额单位，前端显示时转换为"元"
+3. **角色权限**: ADMIN 可访问所有功能，STAFF 不能删除数据
+4. **库存管理**: 使用乐观锁防止超卖
+5. **图片上传**: 当前使用 placehold.co 占位图服务
+
 ## 常见问题
 
 ### 1. 数据库连接失败
 
-检查 MySQL 服务是否启动，配置文件中的用户名密码是否正确。
+检查 MySQL 服务是否启动，确认 `application.yml` 中的连接信息正确。
 
-### 2. 前端无法访问后端API
+### 2. 前端无法访问后端 API
 
-确认后端服务已启动，检查跨域配置和API地址。
+确认后端服务已启动，检查 Vite 代理配置。
 
 ### 3. Token 过期
 
-Token 有效期为 2 小时，过期后需要重新登录。
+Token 有效期为 2 小时，过期后自动跳转登录页。
 
 ## 更新日志
 
 ### v1.3.0 (2025-02-05)
-- ✨ 新增会员余额管理功能（充值、扣减、历史记录）
-- ✨ 客户模型新增 `balance` 字段
-- ✨ 财务记账新增搜索功能
-- 🎨 前端升级到 React 19、Tailwind CSS 4
-- 📝 更新 API 文档和 README
+- 新增会员余额管理功能（充值、扣减、历史记录）
+- 客户模型新增 `balance` 字段
+- 财务记账新增搜索功能
+- 前端升级到 React 19、Tailwind CSS 4
 
 ### v1.1.0 (2025-01-24)
-- ✨ 新增用户管理模块（用户列表、创建、更新、删除）
-- ✨ 新增文件上传模块（支持图片上传）
-- ✨ 客户会员级别功能优化（支持0-4级）
-- ✨ Docker 容器化部署方案
-- 🐛 修复日期序列化格式问题
-- 📝 更新 API 文档和 README
+- 新增用户管理模块
+- 新增文件上传模块
+- 客户会员级别功能优化（支持 0-4 级）
+- Docker 容器化部署方案
 
 ### v1.0.0 (2024-01-15)
-- 🎉 初始版本发布
-- ✨ 完成基础 CRUD 功能
-- ✨ JWT 认证机制
-- ✨ 财务统计功能
-
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+- 初始版本发布
+- 完成基础 CRUD 功能
+- JWT 认证机制
+- 财务统计功能
 
 ## 许可证
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
-
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-
-- 提交 Issue
-- 发送邮件至项目维护者
+本项目采用 MIT 许可证。
 
 ---
 
-**注意**: 本项目仅供学习参考使用。
+*最后更新：2026-03-04*
