@@ -9,7 +9,7 @@ import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit, Trash2, ShoppingCart, X } from 'lucide-react';
 import type { Product, ProductFormData, SaleItem } from '../types';
-import { saleApi } from '../services/api';
+import { saleApi, productApi } from '../services/api';
 import { DEFAULT_PRODUCT_IMAGE } from '../constants';
 import { showErrorAlert } from '../utils/errorHandler';
 import { preventWheelChange } from '../utils/inputHandlers';
@@ -55,6 +55,13 @@ export const InventoryPage: React.FC = () => {
   // 购物车单价输入值（索引 -> 输入字符串）
   const [unitPriceInputValues, setUnitPriceInputValues] = useState<Record<number, string>>({});
 
+  // 开一单弹窗商品搜索专用状态（独立于主页面商品列表）
+  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+  const [isSaleProductsLoading, setIsSaleProductsLoading] = useState(false);
+  const [saleProductsError, setSaleProductsError] = useState('');
+  // 搜索防抖定时器（浏览器环境使用 number 类型）
+  const [searchDebounceTimer, setSearchDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
   // 价格验证错误和输入框显示值
   const [priceError, setPriceError] = useState('');
   const [priceInputValue, setPriceInputValue] = useState('');
@@ -76,12 +83,46 @@ export const InventoryPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 打开销售对话框时获取商品列表（限制数量避免性能问题）
+  // 打开销售对话框时获取商品列表（支持搜索所有商品）
   useEffect(() => {
     if (isSaleDialogOpen) {
-      fetchProducts({ page: 1, pageSize: 100 });
+      // 加载初始商品列表（使用较大的 pageSize 以支持更多商品）
+      fetchSaleProducts('');
     }
-  }, [isSaleDialogOpen, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSaleDialogOpen]);
+
+  // 获取开一单弹窗商品列表
+  const fetchSaleProducts = async (search: string) => {
+    setIsSaleProductsLoading(true);
+    setSaleProductsError('');
+    try {
+      const response = await productApi.getProducts({ page: 1, pageSize: 10000, search });
+      setSaleProducts(response.data.data.list);
+    } catch (error) {
+      setSaleProductsError('加载商品列表失败');
+      console.error('Failed to fetch sale products:', error);
+    } finally {
+      setIsSaleProductsLoading(false);
+    }
+  };
+
+  // 处理商品搜索输入（防抖）
+  const handleProductSearchChange = (value: string) => {
+    setProductSearchTerm(value);
+    setShowProductDropdown(true);
+
+    // 清除之前的定时器
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+
+    // 设置新的防抖定时器（500ms）
+    const timer = setTimeout(() => {
+      fetchSaleProducts(value);
+    }, 500);
+    setSearchDebounceTimer(timer);
+  };
 
   const handleSearch = useCallback(() => {
     fetchProducts({ page: 1, pageSize: 10, search: searchTerm });
@@ -295,7 +336,7 @@ export const InventoryPage: React.FC = () => {
 
   // 散客销售：添加商品到购物车
   const addProductToCart = (productId: number) => {
-    const product = products.find(p => p.id === productId);
+    const product = saleProducts.find(p => p.id === productId);
     if (!product) return;
 
     // 检查是否已经在购物车中
@@ -407,11 +448,25 @@ export const InventoryPage: React.FC = () => {
     setShowProductDropdown(false);
     setProductSearchTerm('');
     setUnitPriceInputValues({});
+    // 清理搜索防抖定时器
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+      setSearchDebounceTimer(null);
+    }
     // 重置日期为当前时间
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     setSaleDate(now.toISOString().slice(0, 16));
   };
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+    };
+  }, [searchDebounceTimer]);
 
   // 点击外部关闭商品下拉框
   useEffect(() => {
@@ -890,37 +945,42 @@ export const InventoryPage: React.FC = () => {
                 type="text"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={productSearchTerm}
-                onChange={(e) => setProductSearchTerm(e.target.value)}
+                onChange={(e) => handleProductSearchChange(e.target.value)}
                 onFocus={() => setShowProductDropdown(true)}
                 placeholder="搜索或选择商品"
                 autoComplete="off"
               />
               {showProductDropdown && (
                 <div id="product-dropdown" className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {productSearchTerm === '' && (
-                    <div className="px-3 py-2 text-sm text-gray-500 border-b">
-                      请输入商品名称搜索，或从下方列表选择
+                  {isSaleProductsLoading ? (
+                    <div className="px-3 py-4 text-center text-sm text-gray-500">
+                      搜索中...
                     </div>
-                  )}
-                  {products.filter(p => {
-                    const matchesSearch = p.name.toLowerCase().includes(productSearchTerm.toLowerCase());
-                    const inStock = p.stock > 0;
-                    return matchesSearch && inStock;
-                  }).map(product => (
-                    <div
-                      key={product.id}
-                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
-                      onClick={() => addProductToCart(product.id)}
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">
-                          库存: {product.stock} | 单价: ¥{((product.price ?? 0) / 100).toFixed(2)}
+                  ) : saleProductsError ? (
+                    <div className="px-3 py-2 text-sm text-red-500">
+                      {saleProductsError}
+                    </div>
+                  ) : saleProducts.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      {productSearchTerm === '' ? '请输入商品名称搜索' : '未找到匹配的商品'}
+                    </div>
+                  ) : (
+                    saleProducts.filter(p => p.stock > 0).map(product => (
+                      <div
+                        key={product.id}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
+                        onClick={() => addProductToCart(product.id)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">
+                            库存: {product.stock} | 单价: ¥{((product.price ?? 0) / 100).toFixed(2)}
+                          </div>
                         </div>
+                        <div className="text-green-600 text-sm">+</div>
                       </div>
-                      <div className="text-green-600 text-sm">+</div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
             </div>
