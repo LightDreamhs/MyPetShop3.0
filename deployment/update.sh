@@ -1,26 +1,88 @@
 #!/bin/bash
 
 # ==========================================
-# MyPetShop3.0 更新脚本
+# MyPetShop3.0 更新脚本 v2.0
 # ==========================================
-# 功能：
-# 1. 拉取最新代码
-# 2. 检测哪些组件需要更新
-# 3. 重新构建必要的镜像
-# 4. 智能重启容器（保留数据）
-# 5. 验证更新是否成功
+# 用法:
+#   bash update.sh                 # 自动检测并更新变更的组件
+#   bash update.sh -f              # 只更新前端
+#   bash update.sh -b              # 只更新后端
+#   bash update.sh -s              # 跳过Git拉取,直接构建
+#   bash update.sh --no-cache      # 无缓存重建
+#   bash update.sh --help          # 显示帮助
 # ==========================================
 
 set -e  # 遇到错误立即退出
 
-# 颜色输出
+# ==========================================
+# 参数解析
+# ==========================================
+FRONTEND_ONLY=false
+BACKEND_ONLY=false
+SKIP_GIT=false
+NO_CACHE=false
+SHOW_HELP=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--frontend-only)
+            FRONTEND_ONLY=true
+            shift
+            ;;
+        -b|--backend-only)
+            BACKEND_ONLY=true
+            shift
+            ;;
+        -s|--skip-git)
+            SKIP_GIT=true
+            shift
+            ;;
+        --no-cache)
+            NO_CACHE=true
+            shift
+            ;;
+        -h|--help)
+            SHOW_HELP=true
+            shift
+            ;;
+        *)
+            echo "未知参数: $1"
+            SHOW_HELP=true
+            shift
+            ;;
+    esac
+done
+
+if [ "$SHOW_HELP" = true ]; then
+    cat << EOF
+用法: bash update.sh [选项]
+
+选项:
+    -f, --frontend-only    只更新前端
+    -b, --backend-only     只更新后端
+    -s, --skip-git         跳过Git拉取,直接构建
+    --no-cache             无缓存重建镜像
+    -h, --help             显示此帮助信息
+
+示例:
+    bash update.sh                  # 自动检测变更并更新
+    bash update.sh -f -s            # 只更新前端,跳过Git拉取
+    bash update.sh --no-cache       # 无缓存重建所有变更
+
+注意: 需要在服务器上执行此脚本
+EOF
+    exit 0
+fi
+
+# ==========================================
+# 颜色和日志函数
+# ==========================================
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# 日志函数
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -37,318 +99,211 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 获取脚本所在目录
+# ==========================================
+# 初始化
+# ==========================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR/.."
 
-# ==========================================
-# 配置项：选择远程仓库
-# ==========================================
-
-# 远程仓库配置（优先使用Gitee，失败则回退到GitHub）
-GIT_REMOTE_ORIGIN="gitee"  # 可选值: "gitee" 或 "origin" 或 "github"
-
-# 如果设置了环境变量GIT_REMOTE，则使用环境变量的值
-if [ -n "$GIT_REMOTE" ]; then
-    GIT_REMOTE_ORIGIN="$GIT_REMOTE"
-fi
-
-# 检查Gitee远程仓库是否存在，如果不存在则使用origin
-if ! git remote get-url "$GIT_REMOTE_ORIGIN" >/dev/null 2>&1; then
-    log_warning "Gitee远程仓库未配置，使用origin"
-    GIT_REMOTE_ORIGIN="origin"
-fi
-
-# ==========================================
-# 1. 检查Git更新
-# ==========================================
-log_info "=================================="
-log_info "步骤 1/7: 检查代码更新"
-log_info "=================================="
-
-# 检查是否有.git目录
-if [ ! -d "../.git" ]; then
-    log_error "不是Git仓库，请先clone项目"
+# 检查Docker是否运行
+if ! docker ps >/dev/null 2>&1; then
+    log_error "Docker未运行,请先启动Docker"
     exit 1
 fi
 
-cd ..
-git fetch "$GIT_REMOTE_ORIGIN"
+# ==========================================
+# 步骤1: 检测变更
+# ==========================================
+log_info "=================================="
+log_info "步骤 1/5: 检测变更"
+log_info "=================================="
 
-# 获取当前版本
-CURRENT_COMMIT=$(git rev-parse HEAD)
-# 获取远程最新版本
-LATEST_COMMIT=$(git rev-parse "$GIT_REMOTE_ORIGIN/main")
+NEED_UPDATE=false
+BACKEND_NEED_UPDATE=false
+FRONTEND_NEED_UPDATE=false
 
-if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ]; then
-    log_success "代码已是最新版本"
-    NEED_UPDATE=false
-else
-    log_warning "检测到新版本，准备更新..."
-    log_info "当前版本: $CURRENT_COMMIT"
-    log_info "最新版本: $LATEST_COMMIT"
+if [ "$SKIP_GIT" = false ] && [ "$FRONTEND_ONLY" = false ] && [ "$BACKEND_ONLY" = false ]; then
+    # 检查是否是Git仓库
+    if [ ! -d ".git" ]; then
+        log_warning "不是Git仓库,跳过代码检测"
+        SKIP_GIT=true
+    else
+        # 尝试拉取更新
+        CURRENT_COMMIT=$(git rev-parse HEAD)
 
-    # 查看更新内容
-    log_info "更新内容："
-    git log --oneline HEAD.."$GIT_REMOTE_ORIGIN/main" | head -10
+        if git fetch origin 2>/dev/null; then
+            LATEST_COMMIT=$(git rev-parse origin/main)
 
-    read -p "是否继续更新？(y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_info "取消更新"
-        exit 0
+            if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+                log_warning "检测到新版本"
+                git log --oneline HEAD..origin/main | head -5
+
+                read -p "是否更新代码? (y/n) " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    git pull origin main
+                    NEED_UPDATE=true
+                fi
+            else
+                log_success "代码已是最新版本"
+            fi
+        else
+            log_warning "Git拉取失败,跳过代码更新"
+        fi
     fi
-
-    git pull "$GIT_REMOTE_ORIGIN" main
-    NEED_UPDATE=true
 fi
+
+# ==========================================
+# 步骤2: 确定更新范围
+# ==========================================
+log_info ""
+log_info "=================================="
+log_info "步骤 2/5: 确定更新范围"
+log_info "=================================="
+
+if [ "$FRONTEND_ONLY" = true ]; then
+    FRONTEND_NEED_UPDATE=true
+    log_info "模式: 仅更新前端"
+elif [ "$BACKEND_ONLY" = true ]; then
+    BACKEND_NEED_UPDATE=true
+    log_info "模式: 仅更新后端"
+elif [ "$SKIP_GIT" = true ] || [ "$NEED_UPDATE" = true ]; then
+    # 根据参数或默认行为决定
+    if [ "$FRONTEND_ONLY" = false ] && [ "$BACKEND_ONLY" = false ]; then
+        # 默认更新两者
+        BACKEND_NEED_UPDATE=true
+        FRONTEND_NEED_UPDATE=true
+        log_info "模式: 更新前后端"
+    fi
+fi
+
+if [ "$BACKEND_NEED_UPDATE" = true ]; then
+    log_warning "✓ 后端将被更新"
+fi
+if [ "$FRONTEND_NEED_UPDATE" = true ]; then
+    log_warning "✓ 前端将被更新"
+fi
+
+# ==========================================
+# 步骤3: 备份
+# ==========================================
+log_info ""
+log_info "=================================="
+log_info "步骤 3/5: 备份当前状态"
+log_info "=================================="
+
+BACKUP_DIR="deployment/backups/$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+
+if [ -f "deployment/.env" ]; then
+    cp deployment/.env "$BACKUP_DIR/.env.backup"
+    log_success "✓ 已备份 .env"
+fi
+
+docker compose ps > "$BACKUP_DIR/containers.txt" 2>/dev/null || true
+docker images | grep deployment > "$BACKUP_DIR/images.txt" 2>/dev/null || true
+log_success "✓ 已记录容器和镜像状态"
+
+# ==========================================
+# 步骤4: 构建镜像
+# ==========================================
+log_info ""
+log_info "=================================="
+log_info "步骤 4/5: 构建镜像"
+log_info "=================================="
+
+BUILD_CACHE=""
+if [ "$NO_CACHE" = true ]; then
+    BUILD_CACHE="--no-cache"
+    log_warning "使用无缓存构建"
+fi
+
+# 更新后端
+if [ "$BACKEND_NEED_UPDATE" = true ]; then
+    log_info "停止后端容器..."
+    docker compose stop backend 2>/dev/null || true
+    docker compose rm -f backend 2>/dev/null || true
+
+    log_info "删除旧后端镜像..."
+    docker rmi deployment-backend:latest 2>/dev/null || true
+
+    log_info "构建后端镜像 (可能需要几分钟)..."
+    cd deployment
+    docker build $BUILD_CACHE -t deployment-backend:latest \
+        -f ../backend/Dockerfile.backend ../backend/
+    cd ..
+
+    log_success "✓ 后端镜像构建完成"
+fi
+
+# 更新前端
+if [ "$FRONTEND_NEED_UPDATE" = true ]; then
+    log_info "停止前端容器..."
+    docker compose stop frontend 2>/dev/null || true
+    docker compose rm -f frontend 2>/dev/null || true
+
+    log_info "删除旧前端镜像..."
+    docker rmi deployment-frontend:latest 2>/dev/null || true
+
+    log_info "构建前端镜像 (可能需要几分钟)..."
+    cd deployment
+    docker build $BUILD_CACHE -t deployment-frontend:latest \
+        -f ../frontend/Dockerfile ../frontend/
+    cd ..
+
+    log_success "✓ 前端镜像构建完成"
+fi
+
+# ==========================================
+# 步骤5: 启动服务
+# ==========================================
+log_info ""
+log_info "=================================="
+log_info "步骤 5/5: 启动服务"
+log_info "=================================="
 
 cd deployment
 
-# ==========================================
-# 2. 检测哪些组件发生了变化
-# ==========================================
-log_info ""
-log_info "=================================="
-log_info "步骤 2/7: 检测组件变化"
-log_info "=================================="
-
-# 检查后端代码是否变化
-if git diff --name-only $CURRENT_COMMIT $LATEST_COMMIT | grep -q "^backend/"; then
-    log_warning "✗ 后端代码有变化，需要重新构建"
-    BACKEND_NEED_UPDATE=true
-else
-    log_success "✓ 后端代码无变化"
-    BACKEND_NEED_UPDATE=false
-fi
-
-# 检查前端代码是否变化
-if git diff --name-only $CURRENT_COMMIT $LATEST_COMMIT | grep -q "^frontend/"; then
-    log_warning "✗ 前端代码有变化，需要重新构建"
-    FRONTEND_NEED_UPDATE=true
-else
-    log_success "✓ 前端代码无变化"
-    FRONTEND_NEED_UPDATE=false
-fi
-
-# 检查nginx配置是否变化
-if git diff --name-only $CURRENT_COMMIT $LATEST_COMMIT | grep -E "(deployment/nginx.conf|frontend/nginx.conf)"; then
-    log_warning "✗ Nginx配置有变化，需要重新构建前端"
-    FRONTEND_NEED_UPDATE=true
-else
-    log_success "✓ Nginx配置无变化"
-fi
-
-# 检查docker-compose配置是否变化
-if git diff --name-only $CURRENT_COMMIT $LATEST_COMMIT | grep -q "deployment/docker-compose.yml"; then
-    log_warning "✗ Docker Compose配置有变化"
-    COMPOSE_NEED_UPDATE=true
-else
-    log_success "✓ Docker Compose配置无变化"
-    COMPOSE_NEED_UPDATE=false
-fi
-
-# 检查数据库初始化脚本是否变化
-if git diff --name-only $CURRENT_COMMIT $LATEST_COMMIT | grep -q "deployment/mysql-init/"; then
-    log_warning "✗ 数据库初始化脚本有变化（注意：不会影响已有数据）"
-    DB_NEED_UPDATE=true
-else
-    log_success "✓ 数据库脚本无变化"
-    DB_NEED_UPDATE=false
-fi
-
-# ==========================================
-# 3. 备份当前状态
-# ==========================================
-log_info ""
-log_info "=================================="
-log_info "步骤 3/7: 备份当前状态"
-log_info "=================================="
-
-# 创建备份目录
-BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$BACKUP_DIR"
-
-# 备份环境变量
-if [ -f .env ]; then
-    cp .env "$BACKUP_DIR/.env.backup"
-    log_success "✓ 已备份 .env 文件"
-fi
-
-# 记录当前容器状态
-docker-compose ps > "$BACKUP_DIR/containers_status.txt"
-log_success "✓ 已记录容器状态"
-
-# 记录当前镜像ID
-docker images | grep deployment > "$BACKUP_DIR/images.txt"
-log_success "✓ 已记录当前镜像"
-
-# ==========================================
-# 4. 更新容器镜像
-# ==========================================
-log_info ""
-log_info "=================================="
-log_info "步骤 4/7: 更新容器镜像"
-log_info "=================================="
-
-if [ "$BACKEND_NEED_UPDATE" = true ] || [ "$FRONTEND_NEED_UPDATE" = true ] || [ "$NEED_UPDATE" = true ]; then
-
-    if [ "$BACKEND_NEED_UPDATE" = true ]; then
-        log_info "删除旧后端镜像..."
-        docker rmi deployment-backend 2>/dev/null || true
-        log_info "重新构建后端镜像..."
-        docker-compose build backend
-        log_success "✓ 后端镜像构建完成"
-    fi
-
-    if [ "$FRONTEND_NEED_UPDATE" = true ]; then
-        log_info "删除旧前端镜像..."
-        docker rmi deployment-frontend 2>/dev/null || true
-        log_info "重新构建前端镜像..."
-        docker-compose build frontend
-        log_success "✓ 前端镜像构建完成"
-    fi
-
-else
-    log_success "无需重新构建镜像"
-fi
-
-# ==========================================
-# 5. 重启容器
-# ==========================================
-log_info ""
-log_info "=================================="
-log_info "步骤 5/7: 重启容器"
-log_info "=================================="
-
 if [ "$BACKEND_NEED_UPDATE" = true ]; then
-    log_info "重启后端容器..."
-    docker-compose stop backend 2>/dev/null || true
-    docker-compose rm -f backend 2>/dev/null || true
-    docker-compose up -d backend
-    log_success "✓ 后端容器已重启"
+    log_info "启动后端容器..."
+    docker compose up -d backend
+    log_success "✓ 后端容器已启动"
 fi
 
 if [ "$FRONTEND_NEED_UPDATE" = true ]; then
-    log_info "重启前端容器..."
-    docker-compose stop frontend 2>/dev/null || true
-    docker-compose rm -f frontend 2>/dev/null || true
-    docker-compose up -d frontend
-    log_success "✓ 前端容器已重启"
+    log_info "启动前端容器..."
+    docker compose up -d frontend
+    log_success "✓ 前端容器已启动"
 fi
 
-if [ "$COMPOSE_NEED_UPDATE" = true ]; then
-    log_info "Docker Compose配置有变化，重启所有服务..."
-    docker-compose up -d
-    log_success "✓ 所有服务已重启"
-fi
+# 等待健康检查
+log_info ""
+log_info "等待服务启动 (30秒)..."
+sleep 30
 
-# ==========================================
-# 6. 验证数据持久化
-# ==========================================
+# 最终状态检查
 log_info ""
 log_info "=================================="
-log_info "步骤 6/7: 验证数据持久化"
+log_info "最终状态"
 log_info "=================================="
 
-# 检查MySQL数据卷（使用docker-compose自动获取正确的卷名）
-MYSQL_VOLUME_NAME=$(docker-compose config --volumes | grep mysql | head -1)
-if [ -z "$MYSQL_VOLUME_NAME" ]; then
-    MYSQL_VOLUME_NAME="deployment_mysql-data"
-fi
+docker compose ps
 
-if docker volume ls | grep -q ${MYSQL_VOLUME_NAME}; then
-    log_success "✓ MySQL数据卷存在 ($MYSQL_VOLUME_NAME)"
-
-    # 检查数据卷是否有数据
-    MYSQL_DATA_SIZE=$(docker volume inspect ${MYSQL_VOLUME_NAME} --format='{{.Usage}}' 2>/dev/null || echo "未知")
-    log_info "MySQL数据大小: $MYSQL_DATA_SIZE"
-else
-    log_warning "✗ MySQL数据卷不存在（首次部署）"
-fi
-
-# 检查上传文件数据卷
-UPLOAD_VOLUME_NAME=$(docker-compose config --volumes | grep upload | head -1)
-if [ -z "$UPLOAD_VOLUME_NAME" ]; then
-    UPLOAD_VOLUME_NAME="deployment_upload-data"
-fi
-
-if docker volume ls | grep -q ${UPLOAD_VOLUME_NAME}; then
-    log_success "✓ 上传文件数据卷存在 ($UPLOAD_VOLUME_NAME)"
-
-    # 检查是否有上传文件
-    UPLOAD_COUNT=$(docker exec petshop-backend ls -1 /app/uploads/images/ 2>/dev/null | wc -l)
-    log_info "上传文件数量: $UPLOAD_COUNT"
-else
-    log_warning "✗ 上传文件数据卷不存在（首次部署）"
-fi
-
-# 检查数据库数据
-log_info "检查数据库数据..."
-TABLE_COUNT=$(docker exec petshop-mysql mysql -uroot -p${MYSQL_ROOT_PASSWORD:-root} -e "USE pet_shop_3_0; SHOW TABLES;" 2>/dev/null | wc -l)
-if [ "$TABLE_COUNT" -gt 0 ]; then
-    log_success "✓ 数据库数据完整 (共 $((TABLE_COUNT - 1)) 张表)"
-else
-    log_warning "✗ 数据库无数据（首次部署或数据丢失）"
-fi
-
-# ==========================================
-# 7. 健康检查
-# ==========================================
+# 显示容器日志
 log_info ""
-log_info "=================================="
-log_info "步骤 7/7: 健康检查"
-log_info "=================================="
-
-# 等待容器启动
-log_info "等待容器启动..."
-sleep 15
-
-# 检查容器状态
-log_info "检查容器状态..."
-HEALTHY_COUNT=$(docker-compose ps | grep -c "healthy" || true)
-RUNNING_COUNT=$(docker-compose ps | grep -c "Up" || true)
-
-if [ "$HEALTHY_COUNT" -eq 3 ]; then
-    log_success "✓ 所有容器健康状态良好"
-else
-    log_warning "部分容器可能未就绪，请稍后检查"
-fi
-
-# 检查后端API
-log_info "检查后端API..."
-if curl -f -s http://localhost:8080/api/v1/actuator/health > /dev/null 2>&1; then
-    log_success "✓ 后端API正常"
-elif curl -f -s http://localhost:8080/api/v1/users > /dev/null 2>&1; then
-    log_success "✓ 后端API正常"
-else
-    log_warning "✗ 后端API未响应（可能还在启动中）"
-fi
-
-# 检查前端
-log_info "检查前端..."
-if curl -f -s http://localhost/health > /dev/null 2>&1; then
-    log_success "✓ 前端服务正常"
-else
-    log_warning "✗ 前端服务未响应（可能还在启动中）"
-fi
-
-# ==========================================
-# 更新摘要
-# ==========================================
-log_info ""
-log_info "=================================="
-log_success "更新完成！"
-log_info "=================================="
-
-log_info "更新摘要："
-[ "$BACKEND_NEED_UPDATE" = true ] && echo "  ✓ 后端已更新"
-[ "$FRONTEND_NEED_UPDATE" = true ] && echo "  ✓ 前端已更新"
-[ "$COMPOSE_NEED_UPDATE" = true ] && echo "  ✓ Docker配置已更新"
-[ "$DB_NEED_UPDATE" = true ] && echo "  ℹ 数据库脚本已更新（不影响已有数据）"
-
-log_info ""
+log_info "查看完整日志: docker compose logs -f"
 log_info "备份位置: $BACKUP_DIR"
-log_info "查看容器状态: docker-compose ps"
-log_info "查看日志: docker-compose logs -f"
 log_info ""
+
+# 检查健康状态
+HEALTHY=$(docker compose ps | grep -c "healthy" || true)
+log_info "健康容器数: $HEALTHY/3"
+
+if [ "$HEALTHY" -eq 3 ]; then
+    log_success "所有服务运行正常!"
+else
+    log_warning "部分服务可能未完全启动,请检查日志"
+fi
+
+log_info ""
+log_success "更新完成!"
