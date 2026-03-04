@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCustomerStore } from '../stores/customerStore';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
-import { preventWheelChange } from '../utils/inputHandlers';
+import { createPreventWheelRef } from '../utils/inputHandlers';
 import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
@@ -464,7 +464,7 @@ export const CustomersPage: React.FC = () => {
                 className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.age || ''}
                 onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
-                onWheel={preventWheelChange}
+                ref={createPreventWheelRef()}
               />
             </div>
             <div>
@@ -843,7 +843,7 @@ export const CustomersPage: React.FC = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={formData.age || ''}
                         onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
-                        onWheel={preventWheelChange}
+                        ref={createPreventWheelRef()}
                       />
                     </div>
                     <div>
@@ -1026,7 +1026,7 @@ export const CustomersPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={balanceAmount}
               onChange={(e) => setBalanceAmount(e.target.value)}
-              onWheel={preventWheelChange}
+              ref={createPreventWheelRef()}
               required
             />
             {balanceAmount && parseFloat(balanceAmount) <= 0 && (

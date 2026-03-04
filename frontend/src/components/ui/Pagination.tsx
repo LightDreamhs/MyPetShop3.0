@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
-import { preventWheelChange } from '../../utils/inputHandlers';
+import { createPreventWheelRef } from '../../utils/inputHandlers';
 
 export interface PaginationProps {
   currentPage: number;
@@ -203,7 +203,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               value={jumpPage}
               onChange={(e) => setJumpPage(e.target.value)}
               onKeyDown={handleKeyDown}
-              onWheel={preventWheelChange}
+              ref={createPreventWheelRef()}
               disabled={isLoading}
               placeholder="页码"
               className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useWheelPrevention } from '../../hooks/useWheelPrevention';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -12,12 +13,10 @@ export const Input: React.FC<InputProps> = ({
   type = 'text',
   ...props
 }) => {
-  // 禁用 number 类型输入框的滚轮功能
-  const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
-    if (type === 'number') {
-      e.preventDefault();
-    }
-  };
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 对 number 类型输入框禁用滚轮（使用原生事件监听器）
+  useWheelPrevention(inputRef, type);
 
   return (
     <div className="w-full">
@@ -27,8 +26,8 @@ export const Input: React.FC<InputProps> = ({
         </label>
       )}
       <input
+        ref={inputRef}
         type={type}
-        onWheel={handleWheel}
         className={`w-full px-4 py-3 min-h-[48px] text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent lg:px-3 lg:py-2 lg:min-h-[0] lg:text-base ${
           error ? 'border-red-500' : 'border-gray-300'
         } ${className}`}

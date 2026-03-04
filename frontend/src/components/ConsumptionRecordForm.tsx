@@ -8,7 +8,7 @@ import type { ConsumptionRecordFormData, Customer, SaleItem } from '../types';
 import { customerApi, transactionApi, saleApi } from '../services/api';
 import { getCurrentLocalDateTime } from '../utils/dateFormat';
 import { showErrorAlert, getErrorMessage } from '../utils/errorHandler';
-import { preventWheelChange } from '../utils/inputHandlers';
+import { createPreventWheelRef } from '../utils/inputHandlers';
 
 interface ConsumptionRecordFormProps {
   isOpen: boolean;
@@ -516,7 +516,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                                   clearCartItemInput(index, 'quantity');
                                 }
                               }}
-                              onWheel={preventWheelChange}
+                              ref={createPreventWheelRef()}
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </td>
@@ -596,7 +596,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                     setManualTotalAmount(e.target.value);
                     setAmountError('');
                   }}
-                  onWheel={preventWheelChange}
+                  ref={createPreventWheelRef()}
                   placeholder="手动输入实际交易总价"
                   required
                 />

@@ -12,7 +12,7 @@ import type { Product, ProductFormData, SaleItem } from '../types';
 import { saleApi, productApi } from '../services/api';
 import { DEFAULT_PRODUCT_IMAGE } from '../constants';
 import { showErrorAlert } from '../utils/errorHandler';
-import { preventWheelChange } from '../utils/inputHandlers';
+import { createPreventWheelRef } from '../utils/inputHandlers';
 
 export const InventoryPage: React.FC = () => {
   const { isAdmin } = useAuthStore();
@@ -1016,7 +1016,7 @@ export const InventoryPage: React.FC = () => {
                               updateCartItem(index, 'quantity', 0);
                             }
                           }}
-                          onWheel={preventWheelChange}
+                          ref={createPreventWheelRef()}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="数量"
                         />
