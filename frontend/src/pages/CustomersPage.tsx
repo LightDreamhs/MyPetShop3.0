@@ -8,7 +8,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
 import { Search, Plus, Edit, X, Check, Trash2, Wallet, History } from 'lucide-react';
-import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor, isMember } from '../utils/memberLevel';
+import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor } from '../utils/memberLevel';
 import type { Customer, CustomerFormData, BalanceTransaction } from '../types';
 import { customerApi } from '../services/api';
 import { ConsumptionRecordForm } from '../components/ConsumptionRecordForm';
@@ -67,7 +67,7 @@ export const CustomersPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, [page, pageSize]);
+  }, [page, pageSize, memberFilter]);
 
   // ESC 键处理 - 按正确顺序关闭对话框
   useEffect(() => {
@@ -107,14 +107,25 @@ export const CustomersPage: React.FC = () => {
     }
   }, [isBalanceDialogOpen]); // 只监听对话框打开状态，不监听 customer 变化
 
-  const loadCustomers = () => {
-    const params: { page: number; pageSize: number; search?: string } = { page, pageSize };
+  // 统一构造查询参数：搜索词 + 会员筛选条件（会员筛选由后端按 isMember 查询）
+  const buildParams = (overrides: { page?: number; pageSize?: number } = {}) => {
+    const params: { page: number; pageSize: number; search?: string; isMember?: boolean } = {
+      page,
+      pageSize,
+      ...overrides,
+    };
     if (searchTerm) params.search = searchTerm;
-    fetchCustomers(params);
+    if (memberFilter === 'member') params.isMember = true;
+    else if (memberFilter === 'non-member') params.isMember = false;
+    return params;
+  };
+
+  const loadCustomers = () => {
+    fetchCustomers(buildParams());
   };
 
   const handleSearch = () => {
-    fetchCustomers({ page: 1, pageSize, search: searchTerm });
+    fetchCustomers(buildParams({ page: 1 }));
   };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
@@ -223,15 +234,8 @@ export const CustomersPage: React.FC = () => {
     }
   };
 
-  // 根据会员筛选器过滤客户列表
-  const getFilteredCustomers = () => {
-    if (memberFilter === 'all') return customers;
-    if (memberFilter === 'member') return customers.filter(c => isMember(c.memberLevel));
-    if (memberFilter === 'non-member') return customers.filter(c => !isMember(c.memberLevel));
-    return customers;
-  };
-
-  const filteredCustomers = getFilteredCustomers();
+  // 会员筛选已改为后端查询（见 buildParams 传 isMember），列表直接使用后端返回数据
+  const filteredCustomers = customers;
 
   return (
     <div className="p-8">
@@ -250,7 +254,7 @@ export const CustomersPage: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="搜索姓名或电话..."
+                  placeholder="搜索宠物名、姓名或电话..."
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -369,8 +373,8 @@ export const CustomersPage: React.FC = () => {
               currentPage={page}
               pageSize={pageSize}
               total={total}
-              onPageChange={(newPage) => fetchCustomers({ page: newPage, pageSize, search: searchTerm })}
-              onPageSizeChange={(newPageSize) => fetchCustomers({ page: 1, pageSize: newPageSize, search: searchTerm })}
+              onPageChange={(newPage) => fetchCustomers(buildParams({ page: newPage }))}
+              onPageSizeChange={(newPageSize) => fetchCustomers(buildParams({ page: 1, pageSize: newPageSize }))}
               pageSizeOptions={[9, 18, 36, 72]}
               isLoading={isLoading}
             />

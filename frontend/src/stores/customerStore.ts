@@ -12,7 +12,7 @@ interface CustomerState {
   error: string | null;
 
   // Actions
-  fetchCustomers: (params?: { page?: number; pageSize?: number; search?: string; memberLevel?: number }) => Promise<void>;
+  fetchCustomers: (params?: { page?: number; pageSize?: number; search?: string; isMember?: boolean; memberLevel?: number }) => Promise<void>;
   fetchCustomer: (id: number) => Promise<void>;
   createCustomer: (data: CustomerFormData) => Promise<void>;
   updateCustomer: (id: number, data: CustomerFormData) => Promise<void>;
