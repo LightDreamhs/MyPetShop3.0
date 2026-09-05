@@ -1,0 +1,104 @@
+# ==========================================
+# 分店 Docker Compose 配置
+# 与主店共享 MySQL 容器（petshop-mysql），使用独立数据库 pet_shop_3_0_branch
+# 详见 docs/分店部署方案.md
+# ==========================================
+
+name: petshop-branch
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # 分店后端服务
+  backend-branch:
+    image: petshop-backend:branch
+    container_name: petshop-backend-branch
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      # 数据库配置（分店独立数据库 + 独立账号）
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pet_shop_3_0_branch?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: petshop_branch
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_BRANCH_PASSWORD}
+
+      # JWT 配置（分店独立密钥，与主店 Token 不互通）
+      JWT_SECRET: ${JWT_SECRET_BRANCH}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7200}
+
+      # 服务器配置
+      SERVER_DOMAIN: ${SERVER_DOMAIN_BRANCH}
+      FILE_UPLOAD_DIR: /app/uploads/images
+      FILE_SERVERDOMAIN: ${SERVER_DOMAIN_BRANCH}
+
+      # Spring Profile
+      SPRING_PROFILES_ACTIVE: production
+
+      # JVM 内存配置（服务器仅 2GB 内存，分店后端用小堆）
+      # 注意：必须用 JAVA_TOOL_OPTIONS（JVM 标准变量，自动生效）。
+      # Dockerfile.backend 的 ENTRYPOINT 是 exec 形式，不会读 JAVA_OPTS。
+      JAVA_TOOL_OPTIONS: >-
+        -Xms128m
+        -Xmx256m
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+    # cgroup 硬上限：防止 JVM 超限后触发系统级 OOM killer 波及 MySQL/主店容器
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 640M
+    # 仅绑定本机回环，用于宿主机调试，不对公网暴露
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      # 分店独立上传文件卷
+      - branch-upload-data:/app/uploads/images
+    networks:
+      - petshop-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # 分店前端服务
+  frontend-branch:
+    image: petshop-frontend:branch
+    container_name: petshop-frontend-branch
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "81:80"
+    volumes:
+      # 覆盖 nginx 配置：反代目标必须指向分店后端 backend-branch（严禁指向主店 backend）
+      - ./nginx-branch.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - petshop-network
+    # 资源限制（nginx 很轻量）
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+# 分店持久化数据卷
+volumes:
+  branch-upload-data:
+    driver: local
+
+# 复用主店 compose 创建的网络（外部网络）
+networks:
+  petshop-network:
+    external: true
+    name: deployment_petshop-network

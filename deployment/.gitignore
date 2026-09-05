@@ -21,3 +21,6 @@ logs/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Branch store env (contains secrets)
+.env.branch
