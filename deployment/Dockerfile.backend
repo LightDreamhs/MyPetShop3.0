@@ -1,10 +1,17 @@
 # 后端 Dockerfile
 # 多阶段构建以减小镜像体积
+#
+# 基镜像说明：使用 Debian 版（非 alpine 变体）。国内镜像加速器对冷门的
+# alpine 变体标签无法回源拉取（unknown error / blob TLS 超时），
+# Debian 版为热门标签可直接拉取；wget/curl 由基镜像自带。
 
 # 阶段1: 构建阶段
-FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
+
+# Maven 依赖走阿里云公共仓库（服务器直连 Maven Central 较慢）
+COPY settings-aliyun.xml /root/.m2/settings.xml
 
 # 复制 pom.xml 并下载依赖（利用 Docker 缓存）
 COPY pom.xml .
@@ -17,10 +24,10 @@ COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 # 阶段2: 运行阶段
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 
-# 添加非 root 用户以提高安全性
-RUN addgroup -S spring && adduser -S spring -G spring
+# 添加非 root 用户以提高安全性（Debian 语法，无 -S 短选项）
+RUN groupadd -r spring && useradd -r -g spring spring
 USER spring:spring
 
 WORKDIR /app
@@ -34,9 +41,9 @@ RUN mkdir -p /app/uploads/images
 # 暴露端口
 EXPOSE 8080
 
-# 健康检查
+# 健康检查（探测 Tomcat 端口可达即可；Debian 基镜像自带 wget）
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/actuator/health || exit 1
+  CMD wget -q -O /dev/null http://localhost:8080/ || exit 1
 
 # 启动应用
 ENTRYPOINT ["java", \

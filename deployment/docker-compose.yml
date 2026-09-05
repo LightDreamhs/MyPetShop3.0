@@ -110,7 +110,8 @@ services:
     networks:
       - petshop-network
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      # 后端基镜像已换成 Debian 版（无 nc），用 curl 探测 Tomcat 端口
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8080/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
