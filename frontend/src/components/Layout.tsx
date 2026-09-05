@@ -65,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navItems: NavItem[] = [
     { id: 'inventory', label: '库存管理', icon: Package },
     { id: 'customers', label: '客户信息', icon: UsersIcon },
-    { id: 'accounting', label: '财务记账', icon: Coins },
+    { id: 'accounting', label: '财务记账', icon: Coins, adminOnly: true },
     { id: 'users', label: '店员账号', icon: UserRound, adminOnly: true },
   ];
 

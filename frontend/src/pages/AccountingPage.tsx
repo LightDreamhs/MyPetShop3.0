@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTransactionStore } from '../stores/transactionStore';
+import { useAuthStore } from '../stores/authStore';
 import { transactionApi } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
@@ -20,6 +22,8 @@ interface TransactionQueryParams {
 }
 
 export const AccountingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuthStore();
   const {
     transactions,
     statistics,
@@ -34,6 +38,13 @@ export const AccountingPage: React.FC = () => {
     deleteTransaction,
     clearError,
   } = useTransactionStore();
+
+  // 权限检查：非管理员无法访问
+  useEffect(() => {
+    if (!isAdmin()) {
+      navigate('/');
+    }
+  }, [isAdmin, navigate]);
 
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -77,8 +88,10 @@ export const AccountingPage: React.FC = () => {
   }, [page, pageSize, typeFilter, searchTerm, dateFilter, fetchTransactions, fetchStatistics]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isAdmin()) {
+      loadData();
+    }
+  }, [loadData, isAdmin]);
 
   // 按描述搜索
   const handleSearchByDescription = () => {

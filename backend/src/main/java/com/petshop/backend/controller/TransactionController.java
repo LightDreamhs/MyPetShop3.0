@@ -1,10 +1,12 @@
 package com.petshop.backend.controller;
 
+import com.petshop.backend.annotation.RequireRole;
 import com.petshop.backend.dto.MonthlyStatistics;
 import com.petshop.backend.dto.PageResult;
 import com.petshop.backend.dto.Result;
 import com.petshop.backend.dto.TransactionStatistics;
 import com.petshop.backend.entity.Transaction;
+import com.petshop.backend.enums.Role;
 import com.petshop.backend.service.TransactionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -24,6 +26,7 @@ public class TransactionController {
     /**
      * 获取财务记录列表
      */
+    @RequireRole(Role.ADMIN)
     @GetMapping
     public Result<PageResult<Transaction>> findByPage(
             @RequestParam(defaultValue = "1") Integer page,
@@ -39,6 +42,7 @@ public class TransactionController {
     /**
      * 获取财务记录详情
      */
+    @RequireRole(Role.ADMIN)
     @GetMapping("/{id}")
     public Result<Transaction> findById(@PathVariable Long id) {
         Transaction transaction = transactionService.findById(id);
@@ -48,6 +52,7 @@ public class TransactionController {
     /**
      * 创建财务记录
      */
+    @RequireRole(Role.ADMIN)
     @PostMapping
     public Result<Transaction> create(@Valid @RequestBody TransactionRequest request) {
         Transaction transaction = new Transaction();
@@ -63,6 +68,7 @@ public class TransactionController {
     /**
      * 更新财务记录
      */
+    @RequireRole(Role.ADMIN)
     @PutMapping("/{id}")
     public Result<Transaction> update(
             @PathVariable Long id,
@@ -80,6 +86,7 @@ public class TransactionController {
     /**
      * 删除财务记录
      */
+    @RequireRole(Role.ADMIN)
     @DeleteMapping("/{id}")
     public Result<Void> deleteById(@PathVariable Long id) {
         transactionService.deleteById(id);
@@ -89,6 +96,7 @@ public class TransactionController {
     /**
      * 获取财务统计
      */
+    @RequireRole(Role.ADMIN)
     @GetMapping("/statistics")
     public Result<TransactionStatistics> getStatistics(
             @RequestParam(required = false) String startDate,
@@ -100,6 +108,7 @@ public class TransactionController {
     /**
      * 获取按月统计的收支情况
      */
+    @RequireRole(Role.ADMIN)
     @GetMapping("/monthly-statistics")
     public Result<java.util.List<MonthlyStatistics>> getMonthlyStatistics(
             @RequestParam(required = false) Integer year) {
