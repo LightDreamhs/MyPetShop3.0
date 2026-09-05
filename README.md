@@ -257,6 +257,20 @@ npm run lint
 npm run build
 ```
 
+## 多店部署
+
+系统支持多店独立部署：每家店一套独立实例（独立前端容器、独立后端容器、独立数据库），共用同一个 MySQL 容器，数据完全隔离。
+
+| 店 | 访问地址 | 前端容器 | 后端容器 | 数据库 |
+|----|----------|----------|----------|--------|
+| 主店 | http://47.108.181.158 | petshop-frontend (:80) | petshop-backend (:8080) | pet_shop_3_0 |
+| 分店 | http://47.108.181.158:81 | petshop-frontend-branch (:81) | petshop-backend-branch (8081,仅本机) | pet_shop_3_0_branch |
+
+- 两店使用同一份代码；分店镜像 tag 为 `petshop-backend:branch`、`petshop-frontend:branch`，与主店互不影响
+- 分店部署文件：`deployment/branch/`（compose + nginx 模板）；密钥 `.env.branch` 仅存在于服务器
+- 分店表结构与主库实时一致（由生产库 dump 生成，勿使用 `schema.sql`）
+- 完整方案与执行清单：[docs/分店部署方案.md](./docs/分店部署方案.md)
+
 ## 部署
 
 ### Docker 部署（推荐）
