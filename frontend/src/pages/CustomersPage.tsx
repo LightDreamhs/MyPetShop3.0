@@ -542,7 +542,7 @@ export const CustomersPage: React.FC = () => {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end space-x-3 pt-2">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-2">
             <Button
               type="button"
               variant="secondary"
@@ -727,7 +727,7 @@ export const CustomersPage: React.FC = () => {
                 {/* 操作按钮 */}
                 <div className="space-y-3 pt-4 border-t">
                   {/* 第一组：主要操作 */}
-                  <div className="flex flex-col sm:flex-row justify-end gap-2">
+                  <div className="sticky bottom-0 flex flex-col sm:flex-row justify-end gap-2 bg-white">
                     <Button onClick={startEdit} className="w-full sm:w-auto">
                       <Edit size={18} className="mr-2" />
                       编辑
@@ -742,7 +742,7 @@ export const CustomersPage: React.FC = () => {
                   </div>
 
                   {/* 第二组：次要操作 */}
-                  <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t">
+                  <div className="sticky bottom-0 flex flex-col sm:flex-row justify-end gap-2 bg-white pt-3 border-t">
                     <Button
                       variant="secondary"
                       onClick={() => {
@@ -921,7 +921,7 @@ export const CustomersPage: React.FC = () => {
 
                   {error && <p className="text-sm text-red-600">{error}</p>}
 
-                  <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4 border-t">
                     <Button
                       type="button"
                       variant="secondary"
@@ -1067,7 +1067,7 @@ export const CustomersPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -1174,7 +1174,7 @@ export const CustomersPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-end pt-4 border-t">
+          <div className="sticky bottom-0 flex justify-end bg-white pt-4 border-t">
             <Button
               onClick={() => {
                 setIsBalanceHistoryOpen(false);

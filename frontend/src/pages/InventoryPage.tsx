@@ -749,7 +749,7 @@ export const InventoryPage: React.FC = () => {
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -849,7 +849,7 @@ export const InventoryPage: React.FC = () => {
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -903,7 +903,7 @@ export const InventoryPage: React.FC = () => {
             required
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -1135,7 +1135,7 @@ export const InventoryPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end gap-3 bg-white pt-4">
             <Button type="button" variant="secondary" onClick={closeSaleDialog}>
               取消
             </Button>

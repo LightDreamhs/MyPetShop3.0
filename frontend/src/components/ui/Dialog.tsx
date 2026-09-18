@@ -93,9 +93,9 @@ export const Dialog: React.FC<DialogProps> = ({
 
   return (
     <>
-      {/* 遮罩层 */}
+      {/* 遮罩层（rgba 字面量而非透明度修饰符，避免旧内核不支持 color-mix 导致遮罩失效） */}
       <div
-        className="fixed inset-0 z-40 backdrop-blur-sm bg-gray-900/30 transition-opacity"
+        className="fixed inset-0 z-40 backdrop-blur-sm bg-[rgba(17,24,39,0.3)] transition-opacity"
         aria-hidden="true"
         onClick={onClose}
       />
@@ -104,7 +104,7 @@ export const Dialog: React.FC<DialogProps> = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
           ref={dialogRef}
-          className={`bg-white rounded-lg shadow-2xl w-full max-w-full mx-auto overflow-y-auto pointer-events-auto transform transition-all ${sizeClasses[size]}`}
+          className={`bg-white rounded-lg shadow-2xl w-full max-w-full max-h-full mx-auto overflow-y-auto pointer-events-auto transform transition-all ${sizeClasses[size]}`}
         >
           <div className="flex items-center justify-between px-4 py-4 lg:px-6 lg:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
             <h2 className="text-lg lg:text-xl font-semibold text-gray-900">{title}</h2>

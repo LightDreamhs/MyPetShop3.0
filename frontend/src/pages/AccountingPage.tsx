@@ -630,7 +630,7 @@ export const AccountingPage: React.FC = () => {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -682,7 +682,7 @@ export const AccountingPage: React.FC = () => {
               onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
             />
           </div>
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -741,7 +741,7 @@ export const AccountingPage: React.FC = () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">输入1-365之间的天数</p>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
                 <Button
                   type="button"
                   variant="secondary"
@@ -780,7 +780,7 @@ export const AccountingPage: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
                 <Button
                   type="button"
                   variant="secondary"
@@ -871,7 +871,7 @@ export const AccountingPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="sticky bottom-0 flex justify-end bg-white pt-4">
           <Button
             variant="secondary"
             onClick={() => setIsMonthlyStatsDialogOpen(false)}

@@ -319,7 +319,7 @@ export const UsersPage: React.FC = () => {
             </select>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"
@@ -396,7 +396,7 @@ export const UsersPage: React.FC = () => {
             )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
             <Button
               type="button"
               variant="secondary"

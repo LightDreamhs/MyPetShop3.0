@@ -151,7 +151,7 @@ export const ProfileEditDialog: React.FC<ProfileEditDialogProps> = ({
         )}
 
         {/* 操作按钮 */}
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+        <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4 border-t border-gray-200">
           <Button
             type="button"
             variant="ghost"
