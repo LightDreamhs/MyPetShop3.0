@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Pagination } from '../components/ui/Pagination';
 import { ConsumptionRecordForm } from '../components/ConsumptionRecordForm';
 import { getMemberLevelLabel, getMemberLevelBgColor, getMemberLevelColor, getMemberLevelBorderColor } from '../utils/memberLevel';
+import { formatYuan } from '../utils/money';
 
 export const ConsumptionRecordsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -125,7 +126,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
                       <div>
                         <p className="text-xs text-gray-600">会员余额</p>
                         <p className="text-xl font-bold text-gray-900">
-                          ¥{((currentCustomer.balance || 0) / 100).toFixed(2)}
+                          ¥{formatYuan(currentCustomer.balance || 0)}
                         </p>
                       </div>
                     </div>
@@ -204,7 +205,7 @@ export const ConsumptionRecordsPage: React.FC = () => {
                             {record.suggestion || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                            {record.amount ? `¥${(record.amount / 100).toFixed(2)}` : '-'}
+                            {record.amount ? `¥${formatYuan(record.amount)}` : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button

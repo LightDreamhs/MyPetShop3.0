@@ -9,6 +9,7 @@ import { ImageUpload } from '../components/ui/ImageUpload';
 import { Pagination } from '../components/ui/Pagination';
 import { Search, Plus, Edit, X, Check, Trash2, Wallet, History } from 'lucide-react';
 import { MEMBER_LEVELS, getMemberLevelLabel, getMemberLevelColor, getMemberLevelBgColor, getMemberLevelBorderColor } from '../utils/memberLevel';
+import { MONEY_INPUT_RE, formatYuan } from '../utils/money';
 import type { Customer, CustomerFormData, BalanceTransaction } from '../types';
 import { customerApi } from '../services/api';
 import { ConsumptionRecordForm } from '../components/ConsumptionRecordForm';
@@ -662,7 +663,7 @@ export const CustomersPage: React.FC = () => {
                       <div>
                         <p className="text-xs text-gray-600">会员余额</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          ¥{((selectedCustomer.balance || 0) / 100).toFixed(2)}
+                          ¥{formatYuan(selectedCustomer.balance || 0)}
                         </p>
                       </div>
                     </div>
@@ -1024,13 +1025,17 @@ export const CustomersPage: React.FC = () => {
               金额（元）*
             </label>
             <input
-              type="number"
-              step="0.01"
-              min="0.01"
+              type="text"
+              inputMode="decimal"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={balanceAmount}
-              onChange={(e) => setBalanceAmount(e.target.value)}
-              ref={createPreventWheelRef()}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (MONEY_INPUT_RE.test(value)) {
+                  setBalanceAmount(value);
+                }
+              }}
+              placeholder="0"
               required
             />
             {balanceAmount && parseFloat(balanceAmount) <= 0 && (
@@ -1054,11 +1059,11 @@ export const CustomersPage: React.FC = () => {
           {balanceDialogType === 'deduct' && (balanceOperationCustomer || selectedCustomer) && (
             <div className="bg-blue-50 rounded-lg p-3">
               <p className="text-sm text-gray-600">
-                当前余额: <span className="font-semibold">¥{(((balanceOperationCustomer || selectedCustomer)!.balance || 0) / 100).toFixed(2)}</span>
+                当前余额: <span className="font-semibold">¥{formatYuan((balanceOperationCustomer || selectedCustomer)!.balance || 0)}</span>
               </p>
               {balanceAmount && (
                 <p className="text-sm text-gray-600 mt-1">
-                  扣减后余额: <span className="font-semibold">¥{((((balanceOperationCustomer || selectedCustomer)!.balance || 0) - Math.round(parseFloat(balanceAmount) * 100)) / 100).toFixed(2)}</span>
+                  扣减后余额: <span className="font-semibold">¥{formatYuan(((balanceOperationCustomer || selectedCustomer)!.balance || 0) - Math.round(parseFloat(balanceAmount) * 100))}</span>
                 </p>
               )}
               {balanceAmount && ((balanceOperationCustomer || selectedCustomer)!.balance || 0) < Math.round(parseFloat(balanceAmount) * 100) && (
@@ -1117,7 +1122,7 @@ export const CustomersPage: React.FC = () => {
                         <span className={`text-2xl font-bold ${
                           record.type === 'RECHARGE' ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {record.type === 'RECHARGE' ? '+' : '-'}¥{(record.amount / 100).toFixed(2)}
+                          {record.type === 'RECHARGE' ? '+' : '-'}¥{formatYuan(record.amount)}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           record.type === 'RECHARGE'
@@ -1128,8 +1133,8 @@ export const CustomersPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <p>变动前: <span className="font-medium">¥{(record.balanceBefore / 100).toFixed(2)}</span></p>
-                        <p>变动后: <span className="font-medium">¥{(record.balanceAfter / 100).toFixed(2)}</span></p>
+                        <p>变动前: <span className="font-medium">¥{formatYuan(record.balanceBefore)}</span></p>
+                        <p>变动后: <span className="font-medium">¥{formatYuan(record.balanceAfter)}</span></p>
                         {record.description && (
                           <p className="text-gray-500">说明: {record.description}</p>
                         )}

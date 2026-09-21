@@ -10,6 +10,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Calendar, TrendingUp, BarChart3 } from 'lucide-react';
 import type { TransactionFormData, Transaction, MonthlyStatistics } from '../types';
 import { getCurrentLocalDateTime } from '../utils/dateFormat';
+import { formatYuan, settleMoneyInput } from '../utils/money';
 
 // 查询参数类型
 interface TransactionQueryParams {
@@ -215,19 +216,12 @@ export const AccountingPage: React.FC = () => {
     validateAmountInput(value);
   };
 
-  // 金额输入框失去焦点时，转换为实际数值
+  // 金额输入框失去焦点时，转换为实际数值（保留用户输入形态，不强制补两位小数）
   const handleAmountInputBlur = () => {
-    if (amountInputValue === '' || amountInputValue === '.') {
-      setAmountInputValue('');
-      setFormData({ ...formData, amount: 0 });
-      return;
-    }
-
-    const numValue = parseFloat(amountInputValue);
-    if (!isNaN(numValue) && numValue > 0) {
-      const amountInCents = Math.round(numValue * 100);
-      setFormData({ ...formData, amount: amountInCents });
-      setAmountInputValue(numValue.toFixed(2));
+    const settled = settleMoneyInput(amountInputValue);
+    if (settled && settled.cents > 0) {
+      setFormData({ ...formData, amount: settled.cents });
+      setAmountInputValue(settled.display);
     } else {
       setAmountInputValue('');
       setFormData({ ...formData, amount: 0 });
@@ -287,7 +281,7 @@ export const AccountingPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">总收入</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ¥{(statistics.totalIncome / 100).toFixed(2)}
+                    ¥{formatYuan(statistics.totalIncome)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -303,7 +297,7 @@ export const AccountingPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">总支出</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ¥{(statistics.totalExpense / 100).toFixed(2)}
+                    ¥{formatYuan(statistics.totalExpense)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -319,7 +313,7 @@ export const AccountingPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">净收入</p>
                   <p className={`text-2xl font-bold ${statistics.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ¥{(statistics.netIncome / 100).toFixed(2)}
+                    ¥{formatYuan(statistics.netIncome)}
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -495,7 +489,7 @@ export const AccountingPage: React.FC = () => {
                           transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {transaction.type === 'income' ? '+' : '-'}
-                          ¥{(transaction.amount / 100).toFixed(2)}
+                          ¥{formatYuan(transaction.amount)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
@@ -597,7 +591,7 @@ export const AccountingPage: React.FC = () => {
               value={amountInputValue}
               onChange={(e) => handleAmountInputChange(e.target.value)}
               onBlur={handleAmountInputBlur}
-              placeholder="0.00"
+              placeholder="0"
               required
             />
             {amountError && (
@@ -764,19 +758,19 @@ export const AccountingPage: React.FC = () => {
                 <div className="bg-green-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">近{netIncomeDays}天总收入</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ¥{(netIncomeResult.totalIncome / 100).toFixed(2)}
+                    ¥{formatYuan(netIncomeResult.totalIncome)}
                   </p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">近{netIncomeDays}天总支出</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ¥{(netIncomeResult.totalExpense / 100).toFixed(2)}
+                    ¥{formatYuan(netIncomeResult.totalExpense)}
                   </p>
                 </div>
                 <div className={`rounded-lg p-4 ${netIncomeResult.netIncome >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
                   <p className="text-sm text-gray-600 mb-1">近{netIncomeDays}天净收入</p>
                   <p className={`text-3xl font-bold ${netIncomeResult.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ¥{(netIncomeResult.netIncome / 100).toFixed(2)}
+                    ¥{formatYuan(netIncomeResult.netIncome)}
                   </p>
                 </div>
               </div>
@@ -848,19 +842,19 @@ export const AccountingPage: React.FC = () => {
                       <div>
                         <span className="text-gray-600">收入：</span>
                         <span className="text-green-600 font-medium">
-                          ¥{(stat.totalIncome / 100).toFixed(2)}
+                          ¥{formatYuan(stat.totalIncome)}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-600">支出：</span>
                         <span className="text-red-600 font-medium">
-                          ¥{(stat.totalExpense / 100).toFixed(2)}
+                          ¥{formatYuan(stat.totalExpense)}
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-600">总收支：</span>
                         <span className={`font-medium ${stat.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ¥{(stat.netIncome / 100).toFixed(2)}
+                          ¥{formatYuan(stat.netIncome)}
                         </span>
                       </div>
                     </div>

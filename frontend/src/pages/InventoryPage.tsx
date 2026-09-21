@@ -12,7 +12,14 @@ import type { Product, ProductFormData, SaleItem } from '../types';
 import { saleApi, productApi } from '../services/api';
 import { DEFAULT_PRODUCT_IMAGE } from '../constants';
 import { showErrorAlert } from '../utils/errorHandler';
-import { createPreventWheelRef } from '../utils/inputHandlers';
+import {
+  MONEY_INPUT_RE,
+  INTEGER_INPUT_RE,
+  formatYuan,
+  centsToYuanInput,
+  yuanInputToCents,
+  settleMoneyInput,
+} from '../utils/money';
 
 export const InventoryPage: React.FC = () => {
   const { isAdmin } = useAuthStore();
@@ -167,20 +174,13 @@ export const InventoryPage: React.FC = () => {
     validatePriceInput(value);
   };
 
-  // 价格输入框失去焦点时，转换为实际数值
+  // 价格输入框失去焦点时，转换为实际数值（保留用户输入形态，不强制补两位小数）
   const handlePriceInputBlur = () => {
-    if (priceInputValue === '' || priceInputValue === '.') {
-      setPriceInputValue('');
-      setFormData({ ...formData, price: 0 });
-      return;
-    }
-
-    const numValue = parseFloat(priceInputValue);
-    // 允许 0 值（赠品/样品场景）
-    if (!isNaN(numValue) && numValue >= 0) {
-      const priceInCents = Math.round(numValue * 100);
-      setFormData({ ...formData, price: priceInCents });
-      setPriceInputValue(numValue.toFixed(2));
+    const settled = settleMoneyInput(priceInputValue);
+    if (settled) {
+      // 允许 0 值（赠品/样品场景）
+      setFormData({ ...formData, price: settled.cents });
+      setPriceInputValue(settled.display);
     } else {
       setPriceInputValue('');
       setFormData({ ...formData, price: 0 });
@@ -308,8 +308,8 @@ export const InventoryPage: React.FC = () => {
       imageUrl: product.imageUrl,
       description: product.description || '',
     });
-    // 设置价格输入框的显示值
-    setPriceInputValue(((product.price ?? 0) / 100).toFixed(2));
+    // 设置价格输入框的显示值（分→元，去尾零）
+    setPriceInputValue(formatYuan(product.price ?? 0));
     // 设置库存输入框的显示值
     setStockInputValue(product.stock.toString());
     setIsEditDialogOpen(true);
@@ -346,12 +346,14 @@ export const InventoryPage: React.FC = () => {
       return;
     }
 
+    // 自动填充商品进价（product.price 已是"分"，严禁再 ×100），并按 1 件初始化小计
+    const unitPrice = product.price ?? 0;
     setCartItems([...cartItems, {
       productId: product.id,
       productName: product.name,
       quantity: 1,
-      unitPrice: Math.round((product.price ?? 0) * 100), // 自动填充进价
-      subtotal: 0
+      unitPrice,
+      subtotal: unitPrice
     }]);
     setShowProductDropdown(false);
     setProductSearchTerm('');
@@ -369,14 +371,23 @@ export const InventoryPage: React.FC = () => {
     }
     setCartItems(updatedItems);
 
-    // 自动计算总价
+    // 自动计算总价（分→元，去尾零）
     const newTotal = updatedItems.reduce((sum, item) => sum + item.subtotal, 0);
-    setManualTotalAmount((newTotal / 100).toFixed(2));
+    setManualTotalAmount(formatYuan(newTotal));
   };
 
-  // 散客销售：删除购物车项目
+  // 散客销售：删除购物车项目（同步重排单价输入串，避免回显串位）
   const removeCartItem = (index: number) => {
     setCartItems(cartItems.filter((_, i) => i !== index));
+    setUnitPriceInputValues(prev => {
+      const next: Record<number, string> = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        const i = Number(key);
+        if (i < index) next[i] = value;
+        else if (i > index) next[i - 1] = value;
+      });
+      return next;
+    });
   };
 
   // 散客销售：提交订单
@@ -388,8 +399,8 @@ export const InventoryPage: React.FC = () => {
       return;
     }
 
-    const totalAmountInCents = Math.round(parseFloat(manualTotalAmount) * 100);
-    if (isNaN(totalAmountInCents) || totalAmountInCents <= 0) {
+    const totalAmountInCents = yuanInputToCents(manualTotalAmount);
+    if (totalAmountInCents === null || totalAmountInCents <= 0) {
       alert('请输入有效的销售总价');
       return;
     }
@@ -585,7 +596,7 @@ export const InventoryPage: React.FC = () => {
                       {isAdmin() && (
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {product.price !== null ? `¥${(product.price / 100).toFixed(2)}` : '-'}
+                            {product.price !== null ? `¥${formatYuan(product.price)}` : '-'}
                           </div>
                         </td>
                       )}
@@ -896,11 +907,16 @@ export const InventoryPage: React.FC = () => {
           </div>
           <Input
             label="新库存数量"
-            type="number"
-            min="0"
-            value={stockValue}
-            onChange={(e) => setStockValue(parseInt(e.target.value) || 0)}
-            required
+            type="text"
+            inputMode="numeric"
+            value={stockValue === 0 ? '' : stockValue}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (INTEGER_INPUT_RE.test(value)) {
+                setStockValue(value === '' ? 0 : parseInt(value, 10));
+              }
+            }}
+            placeholder="清空视为 0"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="sticky bottom-0 flex justify-end space-x-3 bg-white pt-4">
@@ -974,7 +990,7 @@ export const InventoryPage: React.FC = () => {
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-500">
-                            库存: {product.stock} | 单价: ¥{((product.price ?? 0) / 100).toFixed(2)}
+                            库存: {product.stock} | 单价: ¥{formatYuan(product.price ?? 0)}
                           </div>
                         </div>
                         <div className="text-green-600 text-sm">+</div>
@@ -1005,18 +1021,14 @@ export const InventoryPage: React.FC = () => {
                       <td className="px-4 py-2 text-sm">{item.productName}</td>
                       <td className="px-4 py-2">
                         <input
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="numeric"
                           value={item.quantity === 0 ? '' : item.quantity}
-                          onChange={(e) => updateCartItem(index, 'quantity', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Backspace' && e.currentTarget.value === (item.quantity === 0 ? '' : item.quantity.toString())) {
-                              e.preventDefault();
-                              e.currentTarget.value = '';
-                              updateCartItem(index, 'quantity', 0);
-                            }
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (!INTEGER_INPUT_RE.test(value)) return;
+                            updateCartItem(index, 'quantity', value === '' ? 0 : parseInt(value, 10));
                           }}
-                          ref={createPreventWheelRef()}
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="数量"
                         />
@@ -1025,35 +1037,35 @@ export const InventoryPage: React.FC = () => {
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={unitPriceInputValues[index] ?? (item.unitPrice === 0 ? '' : (item.unitPrice / 100).toFixed(2))}
+                          value={unitPriceInputValues[index] ?? centsToYuanInput(item.unitPrice)}
                           onChange={(e) => {
                             const value = e.target.value;
-                            // 允许输入数字和小数点
-                            if (/^\d*\.?\d{0,2}$/.test(value) || value === '') {
+                            // 允许输入数字和小数点（含 "5." 输入中间态）
+                            if (MONEY_INPUT_RE.test(value)) {
                               setUnitPriceInputValues(prev => ({ ...prev, [index]: value }));
                             }
                           }}
                           onBlur={(e) => {
-                            const value = e.target.value;
-                            const numValue = parseFloat(value);
-                            if (!isNaN(numValue) && numValue > 0) {
-                              const priceInCents = Math.round(numValue * 100);
-                              updateCartItem(index, 'unitPrice', priceInCents);
-                              setUnitPriceInputValues(prev => ({ ...prev, [index]: numValue.toFixed(2) }));
-                            } else if (value === '' || isNaN(numValue)) {
+                            // 只做元→分换算，保留用户输入形态（5 显示 5，5.68 显示 5.68）
+                            const settled = settleMoneyInput(e.target.value);
+                            if (settled && settled.cents > 0) {
+                              updateCartItem(index, 'unitPrice', settled.cents);
+                              setUnitPriceInputValues(prev => ({ ...prev, [index]: settled.display }));
+                            } else {
+                              // 留空或无效（含 0）：清空该行单价
                               updateCartItem(index, 'unitPrice', 0);
                               setUnitPriceInputValues(prev => {
-                                const newValues = { ...prev };
-                                delete newValues[index];
-                                return newValues;
+                                const next = { ...prev };
+                                delete next[index];
+                                return next;
                               });
                             }
                           }}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:none] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="0.00"
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="0"
                         />
                       </td>
-                      <td className="px-4 py-2 text-sm">¥{(item.subtotal / 100).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">¥{formatYuan(item.subtotal)}</td>
                       <td className="px-4 py-2">
                         <button
                           type="button"
@@ -1076,7 +1088,7 @@ export const InventoryPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">计算总价：</span>
                 <span className="text-lg font-bold text-gray-900">
-                  ¥{cartItems.reduce((sum, item) => sum + item.subtotal, 0) / 100}
+                  ¥{formatYuan(cartItems.reduce((sum, item) => sum + item.subtotal, 0))}
                 </span>
               </div>
             </div>
@@ -1085,11 +1097,15 @@ export const InventoryPage: React.FC = () => {
           {/* 手动输入总价 */}
           <Input
             label="销售总价（元）*"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={manualTotalAmount}
-            onChange={(e) => setManualTotalAmount(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (MONEY_INPUT_RE.test(value)) {
+                setManualTotalAmount(value);
+              }
+            }}
             placeholder="手动输入实际交易总价"
             required
           />

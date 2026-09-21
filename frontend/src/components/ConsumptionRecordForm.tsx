@@ -8,7 +8,14 @@ import type { ConsumptionRecordFormData, Customer, SaleItem } from '../types';
 import { customerApi, transactionApi, saleApi } from '../services/api';
 import { getCurrentLocalDateTime } from '../utils/dateFormat';
 import { showErrorAlert, getErrorMessage } from '../utils/errorHandler';
-import { createPreventWheelRef } from '../utils/inputHandlers';
+import {
+  MONEY_INPUT_RE,
+  INTEGER_INPUT_RE,
+  formatYuan,
+  centsToYuanInput,
+  yuanInputToCents,
+  settleMoneyInput,
+} from '../utils/money';
 
 interface ConsumptionRecordFormProps {
   isOpen: boolean;
@@ -150,19 +157,12 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
     validateAmountInput(value);
   };
 
-  // 金额输入框失去焦点时，转换为实际数值
+  // 金额输入框失去焦点时，转换为实际数值（保留用户输入形态，不强制补两位小数）
   const handleAmountInputBlur = () => {
-    if (amountInputValue === '' || amountInputValue === '.') {
-      setAmountInputValue('');
-      setFormData({ ...formData, amount: undefined });
-      return;
-    }
-
-    const numValue = parseFloat(amountInputValue);
-    if (!isNaN(numValue) && numValue > 0) {
-      const amountInCents = Math.round(numValue * 100);
-      setFormData({ ...formData, amount: amountInCents });
-      setAmountInputValue(numValue.toFixed(2));
+    const settled = settleMoneyInput(amountInputValue);
+    if (settled && settled.cents > 0) {
+      setFormData({ ...formData, amount: settled.cents });
+      setAmountInputValue(settled.display);
     } else {
       setAmountInputValue('');
       setFormData({ ...formData, amount: undefined });
@@ -181,12 +181,14 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
       return;
     }
 
+    // 自动填充商品单价（product.price 已是"分"，严禁再 ×100），并按 1 件初始化小计
+    const unitPrice = product.price ?? 0;
     setCartItems([...cartItems, {
       productId: product.id,
       productName: product.name,
       quantity: 1,
-      unitPrice: Math.round((product.price ?? 0) * 100),
-      subtotal: 0
+      unitPrice,
+      subtotal: unitPrice
     }]);
     setShowProductDropdown(false);
     setProductSearchTerm('');
@@ -223,10 +225,22 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
     }
   };
 
-  // 商品模式：删除购物车项目
+  // 商品模式：删除购物车项目（同步重排单价输入串，避免回显串位）
   const removeCartItem = (index: number) => {
     setCartItems(cartItems.filter((_, i) => i !== index));
+    setUnitPriceInputValues(prev => {
+      const next: Record<number, string> = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        const i = Number(key);
+        if (i < index) next[i] = value;
+        else if (i > index) next[i - 1] = value;
+      });
+      return next;
+    });
   };
+
+  // 手动总价的"分"值（无效输入按 0 处理，用于展示与余额校验）
+  const manualTotalCents = yuanInputToCents(manualTotalAmount) ?? 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,7 +270,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
             await transactionApi.createTransaction({
               type: 'income',
               amount: formData.amount,
-              description: `${customer.petName}-${formData.item}-${(formData.amount / 100).toFixed(2)}元-${customer.phone}`,
+              description: `${customer.petName}-${formData.item}-${formatYuan(formData.amount)}元-${customer.phone}`,
               date: formData.date,
             });
           } catch (error: unknown) {
@@ -287,8 +301,8 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
           return;
         }
 
-        const totalAmountInCents = Math.round(parseFloat(manualTotalAmount) * 100);
-        if (isNaN(totalAmountInCents) || totalAmountInCents <= 0) {
+        const totalAmountInCents = yuanInputToCents(manualTotalAmount);
+        if (totalAmountInCents === null || totalAmountInCents <= 0) {
           setAmountError('请输入有效的消费金额');
           return;
         }
@@ -476,7 +490,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           <div className="flex-1">
                             <div className="font-medium text-gray-900">{product.name}</div>
                             <div className="text-sm text-gray-500">
-                              库存: {product.stock} | 单价: ¥{((product.price ?? 0) / 100).toFixed(2)}
+                              库存: {product.stock} | 单价: ¥{formatYuan(product.price ?? 0)}
                             </div>
                           </div>
                           <div className="text-green-600 text-lg">+</div>
@@ -506,17 +520,25 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           <td className="px-4 py-2 text-sm">{item.productName}</td>
                           <td className="px-4 py-2">
                             <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => updateCartItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Backspace' && e.currentTarget.value === '1') {
-                                  e.preventDefault();
+                              type="text"
+                              inputMode="numeric"
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (!INTEGER_INPUT_RE.test(value)) return;
+                                if (value === '') {
                                   clearCartItemInput(index, 'quantity');
+                                } else {
+                                  updateCartItem(index, 'quantity', parseInt(value, 10));
                                 }
                               }}
-                              ref={createPreventWheelRef()}
+                              onBlur={() => {
+                                // 数量最少 1 件：清空后离开输入框自动恢复为 1
+                                if (item.quantity === 0) {
+                                  updateCartItem(index, 'quantity', 1);
+                                }
+                              }}
+                              required
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </td>
@@ -524,35 +546,35 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={unitPriceInputValues[index] ?? (item.unitPrice === 0 ? '' : (item.unitPrice / 100).toFixed(2))}
+                              value={unitPriceInputValues[index] ?? centsToYuanInput(item.unitPrice)}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                // 允许输入数字和小数点
-                                if (/^\d*\.?\d{0,2}$/.test(value) || value === '') {
+                                // 允许输入数字和小数点（含 "5." 输入中间态）
+                                if (MONEY_INPUT_RE.test(value)) {
                                   setUnitPriceInputValues(prev => ({ ...prev, [index]: value }));
                                 }
                               }}
                               onBlur={(e) => {
-                                const value = e.target.value;
-                                const numValue = parseFloat(value);
-                                if (!isNaN(numValue) && numValue > 0) {
-                                  const priceInCents = Math.round(numValue * 100);
-                                  updateCartItem(index, 'unitPrice', priceInCents);
-                                  setUnitPriceInputValues(prev => ({ ...prev, [index]: numValue.toFixed(2) }));
-                                } else if (value === '' || isNaN(numValue)) {
+                                // 只做元→分换算，保留用户输入形态（5 显示 5，5.68 显示 5.68）
+                                const settled = settleMoneyInput(e.target.value);
+                                if (settled && settled.cents > 0) {
+                                  updateCartItem(index, 'unitPrice', settled.cents);
+                                  setUnitPriceInputValues(prev => ({ ...prev, [index]: settled.display }));
+                                } else {
+                                  // 留空或无效（含 0）：清空该行单价
                                   updateCartItem(index, 'unitPrice', 0);
                                   setUnitPriceInputValues(prev => {
-                                    const newValues = { ...prev };
-                                    delete newValues[index];
-                                    return newValues;
+                                    const next = { ...prev };
+                                    delete next[index];
+                                    return next;
                                   });
                                 }
                               }}
-                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:none] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              placeholder="0.00"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="0"
                             />
                           </td>
-                          <td className="px-4 py-2 text-sm">¥{(item.subtotal / 100).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm">¥{formatYuan(item.subtotal)}</td>
                           <td className="px-4 py-2">
                             <button
                               type="button"
@@ -575,7 +597,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">计算总价：</span>
                     <span className="text-lg font-bold text-gray-900">
-                      ¥{cartItems.reduce((sum, item) => sum + item.subtotal, 0) / 100}
+                      ¥{formatYuan(cartItems.reduce((sum, item) => sum + item.subtotal, 0))}
                     </span>
                   </div>
                 </div>
@@ -585,18 +607,19 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">消费金额 (元) *</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   className={`w-full px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     amountError ? 'border-red-500' : 'border-gray-300'
-                  } [appearance:none] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                  }`}
                   value={manualTotalAmount}
                   onChange={(e) => {
-                    setManualTotalAmount(e.target.value);
-                    setAmountError('');
+                    const value = e.target.value;
+                    if (MONEY_INPUT_RE.test(value)) {
+                      setManualTotalAmount(value);
+                      setAmountError('');
+                    }
                   }}
-                  ref={createPreventWheelRef()}
                   placeholder="手动输入实际交易总价"
                   required
                 />
@@ -633,7 +656,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                     </span>
                     {formData.amount && (
                       <span className={`text-sm ${useBalance ? 'text-blue-700' : 'text-gray-600'}`}>
-                        当前余额: <span className="font-bold">¥{((customer.balance || 0) / 100).toFixed(2)}</span>
+                        当前余额: <span className="font-bold">¥{formatYuan(customer.balance || 0)}</span>
                       </span>
                     )}
                   </div>
@@ -645,7 +668,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           消费金额:
                         </span>
                         <span className={`font-semibold ${useBalance ? 'text-blue-700' : 'text-gray-900'}`}>
-                          ¥{(formData.amount / 100).toFixed(2)}
+                          ¥{formatYuan(formData.amount)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -653,10 +676,9 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           {useBalance ? '扣款后余额:' : '当前余额:'}
                         </span>
                         <span className={`font-bold ${useBalance ? 'text-blue-900' : 'text-gray-900'}`}>
-                          ¥{((useBalance
-                            ? ((customer.balance || 0) - formData.amount)
-                            : (customer.balance || 0)
-                          ) / 100).toFixed(2)}
+                          ¥{formatYuan(useBalance
+                            ? (customer.balance || 0) - formData.amount
+                            : (customer.balance || 0))}
                         </span>
                       </div>
                       {(customer.balance || 0) < formData.amount && useBalance && (
@@ -691,7 +713,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                     setUseBalance(e.target.checked);
                     setBalanceError('');
                   }}
-                  disabled={manualTotalAmount ? (customer.balance || 0) < Math.round(parseFloat(manualTotalAmount) * 100) : false}
+                  disabled={manualTotalCents > 0 ? (customer.balance || 0) < manualTotalCents : false}
                   className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                 />
                 <label htmlFor="useBalanceProduct" className="flex-1 cursor-pointer">
@@ -701,7 +723,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                     </span>
                     {manualTotalAmount && (
                       <span className={`text-sm ${useBalance ? 'text-blue-700' : 'text-gray-600'}`}>
-                        当前余额: <span className="font-bold">¥{((customer.balance || 0) / 100).toFixed(2)}</span>
+                        当前余额: <span className="font-bold">¥{formatYuan(customer.balance || 0)}</span>
                       </span>
                     )}
                   </div>
@@ -713,7 +735,7 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           消费金额:
                         </span>
                         <span className={`font-semibold ${useBalance ? 'text-blue-700' : 'text-gray-900'}`}>
-                          ¥{parseFloat(manualTotalAmount).toFixed(2)}
+                          ¥{formatYuan(manualTotalCents)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -721,13 +743,12 @@ export const ConsumptionRecordForm: React.FC<ConsumptionRecordFormProps> = ({
                           {useBalance ? '扣款后余额:' : '当前余额:'}
                         </span>
                         <span className={`font-bold ${useBalance ? 'text-blue-900' : 'text-gray-900'}`}>
-                          ¥{((useBalance
-                            ? ((customer.balance || 0) - Math.round(parseFloat(manualTotalAmount) * 100))
-                            : (customer.balance || 0)
-                          ) / 100).toFixed(2)}
+                          ¥{formatYuan(useBalance
+                            ? (customer.balance || 0) - manualTotalCents
+                            : (customer.balance || 0))}
                         </span>
                       </div>
-                      {(customer.balance || 0) < Math.round(parseFloat(manualTotalAmount) * 100) && useBalance && (
+                      {(customer.balance || 0) < manualTotalCents && useBalance && (
                         <p className="text-red-600 font-medium mt-2">⚠️ 余额不足，无法使用余额支付</p>
                       )}
                     </div>
