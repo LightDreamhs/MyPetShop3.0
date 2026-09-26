@@ -8,6 +8,8 @@
 #   ./build-images.sh frontend            # 只构建前端（最小发布）
 #   ./build-images.sh backend             # 只构建后端（最小发布）
 #   ./build-images.sh all --no-upload     # 只构建+导出，不 scp
+#   ./build-images.sh all --branch        # 同时打出分店 tag（petshop-*:branch）一并导出
+#   ./build-images.sh frontend --branch --no-upload
 # ==========================================
 set -euo pipefail
 
@@ -19,6 +21,10 @@ SERVER="root@47.108.181.158"
 REMOTE_DIR="/root/images"
 BACKEND_IMAGE="deployment-backend:latest"
 FRONTEND_IMAGE="deployment-frontend:latest"
+# 分店镜像与主店同源同内容（同一份代码、同一 Dockerfile），仅 tag 不同；
+# 分店 nginx 反代配置由运行时 volume（nginx-branch.conf）覆盖，无需独立构建
+BRANCH_BACKEND_IMAGE="petshop-backend:branch"
+BRANCH_FRONTEND_IMAGE="petshop-frontend:branch"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 
 info() { echo "[INFO] $1"; }
@@ -27,10 +33,12 @@ die()  { echo "[ERROR] $1" >&2; exit 1; }
 # ---------- 参数解析 ----------
 SCOPE="all"
 NO_UPLOAD=0
+BRANCH_TAG=0
 for arg in "$@"; do
     case "$arg" in
         all|frontend|backend) SCOPE="$arg" ;;
         --no-upload) NO_UPLOAD=1 ;;
+        --branch) BRANCH_TAG=1 ;;
         *) die "未知参数: $arg（用法见文件头注释）" ;;
     esac
 done
@@ -74,7 +82,24 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backend" ]; then
     IMAGES+=("$BACKEND_IMAGE")
 fi
 
-# ---------- 3. 导出 tarball ----------
+# ---------- 3. 分店 tag（同一镜像多 tag，save 自动去重，tarball 体积不变） ----------
+if [ "$BRANCH_TAG" = "1" ] && [ ${#IMAGES[@]} -gt 0 ]; then
+    info "打分店 tag..."
+    for img in "${IMAGES[@]}"; do
+        case "$img" in
+            "$FRONTEND_IMAGE")
+                docker tag "$FRONTEND_IMAGE" "$BRANCH_FRONTEND_IMAGE"
+                IMAGES+=("$BRANCH_FRONTEND_IMAGE")
+                ;;
+            "$BACKEND_IMAGE")
+                docker tag "$BACKEND_IMAGE" "$BRANCH_BACKEND_IMAGE"
+                IMAGES+=("$BRANCH_BACKEND_IMAGE")
+                ;;
+        esac
+    done
+fi
+
+# ---------- 4. 导出 tarball ----------
 IMAGE_DIR="$SCRIPT_DIR/images"
 mkdir -p "$IMAGE_DIR"
 NAME_PREFIX="petshop-images"
@@ -92,7 +117,7 @@ info "已导出: $TARBALL (${SIZE_MB} MB)"
     exit 0
 }
 
-# ---------- 4. 上传到服务器 ----------
+# ---------- 5. 上传到服务器 ----------
 info "上传到 $SERVER:$REMOTE_DIR/ （受本机上行带宽影响，请耐心等待）..."
 ssh "$SERVER" "mkdir -p $REMOTE_DIR"
 scp "$TARBALL" "$SERVER:$REMOTE_DIR/"
@@ -103,4 +128,8 @@ info "构建与上传完成！接下来在服务器上发布:"
 info "==========================================="
 echo "  ssh $SERVER"
 echo "  cd /root/MyPetShop3.0 && git pull --ff-only"
-echo "  cd deployment && ./release.sh $REMOTE_DIR/$(basename "$TARBALL")"
+if [ "$BRANCH_TAG" = "1" ]; then
+    echo "  cd deployment && ./release.sh $REMOTE_DIR/$(basename "$TARBALL") --branch"
+else
+    echo "  cd deployment && ./release.sh $REMOTE_DIR/$(basename "$TARBALL")"
+fi
