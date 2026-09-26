@@ -24,3 +24,9 @@ Thumbs.db
 
 # Branch store env (contains secrets)
 .env.branch
+
+# 本地导出的镜像 tarball（build-images.sh 输出）
+images/
+
+# 本地导出的镜像 tarball（build-images.sh 输出）
+images/

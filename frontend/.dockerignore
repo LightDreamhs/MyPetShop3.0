@@ -1,0 +1,26 @@
+# 前端构建上下文忽略清单
+# 同时服务两种构建方式：
+#   1. frontend/Dockerfile（容器内 npm 构建）：依赖容器内 npm ci，
+#      排除本地 node_modules 既省传输，也避免 Windows 二进制覆盖容器内依赖
+#   2. deployment/Dockerfile.frontend-prebuilt（本地预构建）：需要 dist/ 和 nginx.conf，
+#      因此 dist/ 不能排除
+
+# 依赖（容器内重新安装，本地 176M 不进上下文）
+node_modules/
+
+# 版本控制与 IDE
+.git/
+.idea/
+.vscode/
+
+# 文档与日志
+README.md
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 本地环境文件
+.env
+.env.local
